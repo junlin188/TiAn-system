@@ -1184,7 +1184,7 @@ function render_dir_branch(array $byParent, int $parent, int $activeId, string $
         $hasChildren = !empty($byParent[$id]);
         $containsActive = $activeId === $id || dir_branch_contains($byParent, $id, $activeId);
         $isOpen = $mode !== 'link' || $containsActive;
-        $label = '📁 ' . e($dir['name']);
+        $label = '<span class="tree-folder" aria-hidden="true"></span><span class="tree-name">' . e($dir['name']) . '</span>';
         if ($mode === 'checkbox') {
             $label = '<label><input type="checkbox" name="directory_ids[]" value="' . $id . '" ' . (in_array($id, $checked, true) ? 'checked' : '') . '> ' . $label . '</label>';
         } elseif ($mode === 'radio') {
