@@ -128,6 +128,8 @@ body.files-page .content {
     height: 100vh;
     min-height: 0;
     overflow: hidden;
+    padding-top: 62px;
+    padding-bottom: 14px;
 }
 .page-title-row {
     display: flex;
@@ -140,8 +142,13 @@ body.files-page .content {
     position: sticky;
     top: 56px;
     z-index: 4;
-    padding-top: 18px;
+    margin-bottom: 6px;
+    padding-top: 6px;
     background: #f5f7f9;
+}
+body.files-page .files-title-row h2 {
+    margin-bottom: 8px;
+    font-size: 24px;
 }
 h2 {
     margin: 0 0 14px;
@@ -212,7 +219,7 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
 .tree-panel {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 150px);
+    height: calc(100vh - 126px);
     min-height: 360px;
     overflow: hidden;
     padding: 16px 16px 24px;
@@ -226,7 +233,7 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
     scrollbar-gutter: stable;
 }
 .list-panel {
-    height: calc(100vh - 150px);
+    height: calc(100vh - 126px);
     min-height: 360px;
     min-width: 0;
     overflow-x: auto;
