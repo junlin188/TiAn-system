@@ -980,7 +980,7 @@ if ($user && $page === 'login') {
     <title><?= APP_NAME ?></title>
     <link rel="stylesheet" href="assets/style.css?v=<?= filemtime(__DIR__ . '/assets/style.css') ?>">
 </head>
-<body class="<?= $page === 'login' ? 'login-body' : '' ?>">
+<body class="<?= $page === 'login' ? 'login-body' : ($page === 'files' ? 'files-page' : '') ?>">
 <?php if ($page === 'login'): ?>
     <?php render_login(); ?>
 <?php else: ?>
