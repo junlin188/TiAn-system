@@ -77,9 +77,48 @@ function promptPost(action, values, message, fieldName, defaultValue) {
   postForm(action, Object.assign({}, values, { [fieldName]: value }));
 }
 
+function copyResetPassword() {
+  const input = document.getElementById('reset_password_value');
+  if (!input) return;
+  input.select();
+  input.setSelectionRange(0, input.value.length);
+  const copied = navigator.clipboard
+    ? navigator.clipboard.writeText(input.value)
+    : Promise.reject(new Error('clipboard unavailable'));
+  copied.catch(() => document.execCommand('copy'));
+}
+
 function setValue(id, value) {
   const el = document.getElementById(id);
   if (el) el.value = value == null ? '' : value;
+}
+
+function setDisabled(id, disabled) {
+  const el = document.getElementById(id);
+  if (el) el.disabled = disabled;
+}
+
+function findOptionByText(selectId, text) {
+  const select = document.getElementById(selectId);
+  if (!select) return null;
+  return Array.from(select.options).find((option) => option.textContent.trim() === text) || null;
+}
+
+function applySuperAdminLock(locked) {
+  setDisabled('user_username', locked);
+  setDisabled('user_member_unit_id', locked);
+  setDisabled('user_role', locked);
+  setDisabled('user_status', locked);
+  document.querySelectorAll('#userForm input[name="directory_ids[]"]').forEach((input) => {
+    if (locked) input.checked = true;
+    input.disabled = locked;
+  });
+  if (locked) {
+    const alliance = findOptionByText('user_member_unit_id', '星闪联盟');
+    if (alliance) setValue('user_member_unit_id', alliance.value);
+    setValue('user_role', 'super_admin');
+    setValue('user_status', 'active');
+  }
 }
 
 function openRenameFileModal(file) {
@@ -104,6 +143,7 @@ function openMoveFileModal(file) {
 
 function fillUser(user) {
   document.getElementById('userFormTitle').textContent = '编辑用户';
+  applySuperAdminLock(false);
   setValue('user_id', user.id);
   setValue('user_username', user.username);
   setValue('user_email', user.email);
@@ -112,9 +152,11 @@ function fillUser(user) {
   setValue('user_member_unit_id', user.member_unit_id);
   setValue('user_role', user.role);
   setValue('user_status', user.status);
+  const isSuperAdmin = user.role === 'super_admin';
   document.querySelectorAll('#userForm input[name="directory_ids[]"]').forEach((input) => {
-    input.checked = Array.isArray(user.permission_ids) && user.permission_ids.includes(Number(input.value));
+    input.checked = isSuperAdmin || (Array.isArray(user.permission_ids) && user.permission_ids.includes(Number(input.value)));
   });
+  applySuperAdminLock(isSuperAdmin);
   openModal('userForm');
 }
 
@@ -126,12 +168,14 @@ function reviewUser(user) {
 function newUser() {
   const form = document.querySelector('#userForm form');
   if (form) form.reset();
+  applySuperAdminLock(false);
   document.getElementById('userFormTitle').textContent = '新增用户';
   setValue('user_id', '');
   setValue('user_role', 'member');
   setValue('user_status', 'active');
   document.querySelectorAll('#userForm input[name="directory_ids[]"]').forEach((input) => {
     input.checked = false;
+    input.disabled = false;
   });
   openModal('userForm');
 }
@@ -142,6 +186,7 @@ function fillUnit(unit) {
   setValue('unit_workgroup_id', unit.workgroup_id);
   setValue('unit_company_name', unit.company_name);
   setValue('unit_remark', unit.remark);
+  setDisabled('unit_company_name', unit.company_name === '星闪联盟');
   openModal('unitForm');
 }
 
@@ -153,6 +198,7 @@ function newUnit() {
   setValue('unit_workgroup_id', '');
   setValue('unit_company_name', '');
   setValue('unit_remark', '');
+  setDisabled('unit_company_name', false);
   openModal('unitForm');
   const select = document.getElementById('unit_workgroup_id');
   if (select) select.focus();

@@ -51,7 +51,7 @@ function init_db(PDO $pdo): void
             email TEXT NOT NULL UNIQUE,
             real_name TEXT NOT NULL,
             password_hash TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('admin','chief','member')),
+            role TEXT NOT NULL CHECK(role IN ('super_admin','admin','chief','member')),
             status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','pending','disabled')),
             workgroup_id INTEGER,
             member_unit_id INTEGER,
@@ -120,6 +120,8 @@ function init_db(PDO $pdo): void
         );
     ");
 
+    ensure_super_admin_support($pdo);
+
     $count = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
     if ($count > 0) {
         return;
@@ -142,12 +144,14 @@ function init_db(PDO $pdo): void
     $wgReq = id_by_name('workgroups', 'name', '需求和标准组');
     $wgSafe = id_by_name('workgroups', 'name', '安全组');
     $wgHome = id_by_name('workgroups', 'name', '智能家居产业推广组');
+    $wgAlliance = id_by_name('workgroups', 'name', '星闪联盟');
     $unitStmt = $pdo->prepare('INSERT INTO member_units(workgroup_id, company_name, remark) VALUES(?, ?, ?)');
     foreach ([
         [$wgReq, '中国信息通信研究院', '负责需求分析和标准制定'],
         [$wgSafe, '深圳市宝安区', '安全组会员单位'],
         [$wgHome, '深圳市炎枫科技有限公司', '智能家居会员单位'],
         [$wgReq, '秘书处', '系统管理单位'],
+        [$wgAlliance, '星闪联盟', '超管默认会员单位'],
     ] as $unit) {
         $unitStmt->execute($unit);
     }
@@ -181,22 +185,24 @@ function init_db(PDO $pdo): void
         create_directory_seed($name, $parentPath);
     }
 
-    $adminUnit = id_by_name('member_units', 'company_name', '秘书处');
+    $adminUnit = id_by_name('member_units', 'company_name', '星闪联盟');
     $safeUnit = id_by_name('member_units', 'company_name', '深圳市宝安区');
     $reqUnit = id_by_name('member_units', 'company_name', '中国信息通信研究院');
     $userStmt = $pdo->prepare('
         INSERT INTO users(username, email, real_name, password_hash, role, status, workgroup_id, member_unit_id, created_at)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
     ');
-    $userStmt->execute(['admin', 'admin@example.com', '管理员', password_hash('admin123456', PASSWORD_DEFAULT), 'admin', 'active', $wgReq, $adminUnit, $now]);
+    $userStmt->execute(['admin', 'admin@example.com', '管理员', password_hash('admin123456', PASSWORD_DEFAULT), 'super_admin', 'active', $wgReq, $adminUnit, $now]);
     $userStmt->execute(['shouxi2', '234567@qq.com', '测试首席代表', password_hash('chief123456', PASSWORD_DEFAULT), 'chief', 'active', $wgSafe, $safeUnit, $now]);
     $userStmt->execute(['member1', 'member@test.com', '普通会员', password_hash('member123456', PASSWORD_DEFAULT), 'member', 'active', $wgReq, $reqUnit, $now]);
 
     $root = id_by_path('ISLA');
     $tdoc = id_by_path('ISLA/Tdoc');
     $test = id_by_path('ISLA/test0808');
+    $admin = id_by_name('users', 'username', 'admin');
     $chief = id_by_name('users', 'username', 'shouxi2');
     $member = id_by_name('users', 'username', 'member1');
+    grant_all_dirs($admin);
     grant_dir($chief, $root);
     grant_dir($member, $tdoc);
 
@@ -233,6 +239,78 @@ function create_directory_seed(string $name, ?string $parentPath): void
     $path = $parentPath ? $parentPath . '/' . $name : $name;
     $stmt = db()->prepare('INSERT OR IGNORE INTO directories(parent_id, name, path, created_at) VALUES(?, ?, ?, ?)');
     $stmt->execute([$parentId, $name, $path, now()]);
+}
+
+function ensure_super_admin_support(PDO $pdo): void
+{
+    $sql = (string)$pdo->query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn();
+    if ($sql !== '' && !str_contains($sql, "'super_admin'")) {
+        $pdo->exec('PRAGMA foreign_keys = OFF');
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec("
+                CREATE TABLE users_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    email TEXT NOT NULL UNIQUE,
+                    real_name TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL CHECK(role IN ('super_admin','admin','chief','member')),
+                    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','pending','disabled')),
+                    workgroup_id INTEGER,
+                    member_unit_id INTEGER,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY(workgroup_id) REFERENCES workgroups(id),
+                    FOREIGN KEY(member_unit_id) REFERENCES member_units(id)
+                );
+                INSERT INTO users_new(id, username, email, real_name, password_hash, role, status, workgroup_id, member_unit_id, created_at)
+                    SELECT id, username, email, real_name, password_hash, role, status, workgroup_id, member_unit_id, created_at FROM users;
+                DROP TABLE users;
+                ALTER TABLE users_new RENAME TO users;
+            ");
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        } finally {
+            $pdo->exec('PRAGMA foreign_keys = ON');
+        }
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0) {
+        ensure_alliance_member_unit($pdo);
+        ensure_admin_is_super_admin($pdo);
+    }
+}
+
+function ensure_alliance_member_unit(PDO $pdo): int
+{
+    $stmt = $pdo->prepare('SELECT id FROM member_units WHERE company_name = ?');
+    $stmt->execute(['星闪联盟']);
+    $id = (int)$stmt->fetchColumn();
+    if ($id > 0) {
+        return $id;
+    }
+    $groupStmt = $pdo->prepare('SELECT id FROM workgroups WHERE name = ?');
+    $groupStmt->execute(['星闪联盟']);
+    $workgroupId = (int)$groupStmt->fetchColumn();
+    if ($workgroupId <= 0) {
+        $pdo->prepare('INSERT INTO workgroups(name, description) VALUES(?, ?)')->execute(['星闪联盟', '-']);
+        $workgroupId = (int)$pdo->lastInsertId();
+    }
+    $pdo->prepare('INSERT INTO member_units(workgroup_id, company_name, remark) VALUES(?, ?, ?)')
+        ->execute([$workgroupId, '星闪联盟', '超管默认会员单位']);
+    return (int)$pdo->lastInsertId();
+}
+
+function ensure_admin_is_super_admin(PDO $pdo): void
+{
+    $unitId = ensure_alliance_member_unit($pdo);
+    $stmt = $pdo->prepare('UPDATE users SET role = ?, status = ?, member_unit_id = ? WHERE username = ?');
+    $stmt->execute(['super_admin', 'active', $unitId, 'admin']);
+    $adminId = (int)$pdo->query("SELECT id FROM users WHERE username = 'admin'")->fetchColumn();
+    if ($adminId > 0) {
+        grant_all_dirs($adminId);
+    }
 }
 
 function current_user(): ?array
@@ -289,7 +367,12 @@ function json_attr(array $value): string
 
 function is_admin(array $user): bool
 {
-    return $user['role'] === 'admin';
+    return in_array($user['role'], ['super_admin', 'admin'], true);
+}
+
+function is_super_admin(array $user): bool
+{
+    return $user['role'] === 'super_admin';
 }
 
 function is_chief(array $user): bool
@@ -340,6 +423,12 @@ function grant_dir(int $userId, int $dirId): void
 {
     $stmt = db()->prepare('INSERT OR IGNORE INTO directory_permissions(user_id, directory_id) VALUES(?, ?)');
     $stmt->execute([$userId, $dirId]);
+}
+
+function grant_all_dirs(int $userId): void
+{
+    $stmt = db()->prepare('INSERT OR IGNORE INTO directory_permissions(user_id, directory_id) SELECT ?, id FROM directories');
+    $stmt->execute([$userId]);
 }
 
 function selected_dir_id(array $user): int
@@ -418,6 +507,7 @@ function handle_actions(): void
         match ($action) {
             'save_user' => save_user($user),
             'delete_user' => delete_user($user),
+            'reset_user_password' => reset_user_password($user),
             'approve_user' => approve_user($user),
             'reject_user' => reject_user($user),
             'save_workgroup' => save_workgroup($user),
@@ -609,7 +699,12 @@ function save_user(array $user): void
 {
     require_admin($user);
     $id = (int)($_POST['id'] ?? 0);
-    $password = (string)($_POST['password'] ?? '');
+    $existing = null;
+    if ($id > 0) {
+        $stmt = db()->prepare('SELECT * FROM users WHERE id = ?');
+        $stmt->execute([$id]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
     $data = [
         trim($_POST['username'] ?? ''),
         trim($_POST['email'] ?? ''),
@@ -619,6 +714,15 @@ function save_user(array $user): void
         (int)($_POST['workgroup_id'] ?? 0) ?: null,
         (int)($_POST['member_unit_id'] ?? 0) ?: null,
     ];
+    $editingSuperAdmin = $existing && $existing['role'] === 'super_admin';
+    if ($editingSuperAdmin) {
+        $data[0] = $existing['username'];
+        $data[3] = 'super_admin';
+        $data[4] = 'active';
+        $data[6] = ensure_alliance_member_unit(db());
+    } elseif ($data[3] === 'super_admin') {
+        throw new RuntimeException('超管只能在代码里面设置');
+    }
     if ($data[0] === '' || $data[1] === '' || $data[2] === '') {
         throw new RuntimeException('请填写用户必填项');
     }
@@ -628,31 +732,27 @@ function save_user(array $user): void
     if (!filter_var($data[1], FILTER_VALIDATE_EMAIL)) {
         throw new RuntimeException('邮箱格式不正确');
     }
-    if (!in_array($data[3], ['admin', 'chief', 'member'], true)) {
+    if (!in_array($data[3], ['super_admin', 'admin', 'chief', 'member'], true)) {
         throw new RuntimeException('用户角色不正确');
     }
     if (!in_array($data[4], ['active', 'pending', 'disabled'], true)) {
         throw new RuntimeException('用户状态不正确');
     }
     if ($id > 0) {
-        if ($password !== '') {
-            $stmt = db()->prepare('UPDATE users SET username=?, email=?, real_name=?, role=?, status=?, workgroup_id=?, member_unit_id=?, password_hash=? WHERE id=?');
-            $stmt->execute([...$data, password_hash($password, PASSWORD_DEFAULT), $id]);
-        } else {
-            $stmt = db()->prepare('UPDATE users SET username=?, email=?, real_name=?, role=?, status=?, workgroup_id=?, member_unit_id=? WHERE id=?');
-            $stmt->execute([...$data, $id]);
-        }
+        $stmt = db()->prepare('UPDATE users SET username=?, email=?, real_name=?, role=?, status=?, workgroup_id=?, member_unit_id=? WHERE id=?');
+        $stmt->execute([...$data, $id]);
     } else {
-        if ($password === '') {
-            throw new RuntimeException('新用户必须设置密码');
-        }
         $stmt = db()->prepare('INSERT INTO users(username, email, real_name, role, status, workgroup_id, member_unit_id, password_hash, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([...$data, password_hash($password, PASSWORD_DEFAULT), now()]);
+        $stmt->execute([...$data, password_hash(generate_numeric_password(), PASSWORD_DEFAULT), now()]);
         $id = (int)db()->lastInsertId();
     }
     db()->prepare('DELETE FROM directory_permissions WHERE user_id = ?')->execute([$id]);
-    foreach ($_POST['directory_ids'] ?? [] as $dirId) {
-        grant_dir($id, (int)$dirId);
+    if ($editingSuperAdmin) {
+        grant_all_dirs($id);
+    } else {
+        foreach ($_POST['directory_ids'] ?? [] as $dirId) {
+            grant_dir($id, (int)$dirId);
+        }
     }
 }
 
@@ -665,10 +765,42 @@ function delete_user(array $user): void
     }
     $target = db()->prepare('SELECT role FROM users WHERE id = ?');
     $target->execute([$id]);
-    if ($target->fetchColumn() === 'admin') {
+    if (in_array($target->fetchColumn(), ['super_admin', 'admin'], true)) {
         throw new RuntimeException('不能删除管理员账号');
     }
     db()->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
+}
+
+function generate_numeric_password(): string
+{
+    return (string)random_int(10000000, 99999999);
+}
+
+function reset_user_password(array $user): void
+{
+    require_admin($user);
+    $id = (int)($_POST['id'] ?? 0);
+    if ($id === (int)$user['id']) {
+        throw new RuntimeException('请通过右上角账号菜单修改当前登录账号密码');
+    }
+    $stmt = db()->prepare('SELECT id, username, real_name, email, role FROM users WHERE id = ?');
+    $stmt->execute([$id]);
+    $target = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$target) {
+        throw new RuntimeException('用户不存在');
+    }
+    if ($target['role'] === 'super_admin') {
+        throw new RuntimeException('超管密码不允许在用户列表中重置');
+    }
+    $password = generate_numeric_password();
+    db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+        ->execute([password_hash($password, PASSWORD_DEFAULT), $id]);
+    $_SESSION['reset_password_result'] = [
+        'password' => $password,
+        'username' => $target['username'],
+        'real_name' => $target['real_name'],
+        'email' => $target['email'],
+    ];
 }
 
 function approve_user(array $user): void
@@ -722,6 +854,13 @@ function save_unit(array $user): void
     $workgroup = (int)($_POST['workgroup_id'] ?? 0);
     $company = trim($_POST['company_name'] ?? '');
     $remark = trim($_POST['remark'] ?? '');
+    if ($id) {
+        $stmt = db()->prepare('SELECT company_name FROM member_units WHERE id = ?');
+        $stmt->execute([$id]);
+        if ($stmt->fetchColumn() === '星闪联盟') {
+            $company = '星闪联盟';
+        }
+    }
     if (!$workgroup || $company === '') {
         throw new RuntimeException('请填写会员单位必填项');
     }
@@ -736,6 +875,9 @@ function delete_unit(array $user): void
 {
     require_admin($user);
     $id = (int)$_POST['id'];
+    if (is_alliance_unit($id)) {
+        throw new RuntimeException('星闪联盟是超管默认会员单位，不能删除');
+    }
     foreach (['users' => 'member_unit_id', 'proposals' => 'member_unit_id'] as $table => $field) {
         $stmt = db()->prepare("SELECT COUNT(*) FROM {$table} WHERE {$field} = ?");
         $stmt->execute([$id]);
@@ -744,6 +886,13 @@ function delete_unit(array $user): void
         }
     }
     db()->prepare('DELETE FROM member_units WHERE id=?')->execute([$id]);
+}
+
+function is_alliance_unit(int $unitId): bool
+{
+    $stmt = db()->prepare('SELECT company_name FROM member_units WHERE id = ?');
+    $stmt->execute([$unitId]);
+    return $stmt->fetchColumn() === '星闪联盟';
 }
 
 function save_proposal(array $user): void
@@ -1134,7 +1283,7 @@ if ($user && in_array($page, $publicPages, true)) {
     <title><?= APP_NAME ?></title>
     <link rel="stylesheet" href="assets/style.css?v=<?= filemtime(__DIR__ . '/assets/style.css') ?>">
 </head>
-<body class="<?= in_array($page, $publicPages, true) ? 'login-body' : ($page === 'files' ? 'files-page' : '') ?>">
+<body class="<?= in_array($page, $publicPages, true) ? 'login-body' : ($page === 'files' ? 'files-page' : ($page === 'users' ? 'users-page' : ($page === 'proposals' ? 'proposals-page' : ''))) ?>">
 <?php if (in_array($page, $publicPages, true)): ?>
     <?php render_public_page($page); ?>
 <?php else: ?>
@@ -1251,7 +1400,7 @@ function render_app(array $user, string $page): void
     if ($user['role'] !== 'member') {
         $allowedPages[] = 'proposals';
     }
-    if ($user['role'] === 'admin') {
+    if (is_admin($user)) {
         $allowedPages[] = 'users';
     }
     if (!in_array($page, $allowedPages, true)) {
@@ -1273,7 +1422,7 @@ function render_app(array $user, string $page): void
     </header>
     <aside class="sidebar">
         <?= nav_item('files', '▯', '提案文件', $page) ?>
-        <?php if ($user['role'] === 'admin'): ?><?= nav_item('users', '♙', '用户管理', $page) ?><?php endif; ?>
+        <?php if (is_admin($user)): ?><?= nav_item('users', '♙', '用户管理', $page) ?><?php endif; ?>
         <?php if ($user['role'] !== 'member'): ?><?= nav_item('proposals', '▤', '提案管理', $page) ?><?php endif; ?>
     </aside>
     <main class="content">
@@ -1297,6 +1446,7 @@ function render_app(array $user, string $page): void
             <div class="modal-actions"><button type="button" class="muted" onclick="closeModal('changePasswordForm')">取消</button><button class="primary">保存</button></div>
         </form>
     </div>
+    <?php render_reset_password_result_modal(); ?>
     <?php
 }
 
@@ -1562,7 +1712,6 @@ function render_users(array $user): void
         $tab = 'units';
     }
     ?>
-    <div class="page-title-row"><h2>用户管理</h2></div>
     <nav class="tabs">
         <a class="<?= $tab === 'members' ? 'active' : '' ?>" href="?page=users&tab=members">正式会员</a>
         <a class="<?= $tab === 'pending' ? 'active' : '' ?>" href="?page=users&tab=pending">待审核</a>
@@ -1600,7 +1749,7 @@ function render_user_table(): void
         $where[] = 'u.workgroup_id = ?';
         $params[] = $workgroupId;
     }
-    if (in_array($role, ['admin', 'chief', 'member'], true)) {
+    if (in_array($role, ['super_admin', 'admin', 'chief', 'member'], true)) {
         $where[] = 'u.role = ?';
         $params[] = $role;
     }
@@ -1624,6 +1773,7 @@ function render_user_table(): void
         </select>
         <select name="role">
             <option value="">所有角色</option>
+            <option value="super_admin" <?= $role === 'super_admin' ? 'selected' : '' ?>>超管</option>
             <option value="admin" <?= $role === 'admin' ? 'selected' : '' ?>>管理员</option>
             <option value="chief" <?= $role === 'chief' ? 'selected' : '' ?>>首席会员</option>
             <option value="member" <?= $role === 'member' ? 'selected' : '' ?>>普通会员</option>
@@ -1632,18 +1782,19 @@ function render_user_table(): void
         <a class="button outline compact" href="?page=users&tab=members">重置</a>
         <button type="button" class="primary" onclick="newUser()">新增用户</button>
     </form>
-    <table><thead><tr><th>编号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
+    <div class="table-scroll"><table><thead><tr><th>编号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($users as $u): ?>
         <tr>
             <td><?= $u['id'] ?></td><td><?= e($u['email']) ?></td><td><?= e($u['real_name']) ?></td><td><?= e($u['company_name'] ?? '') ?></td><td><?= e($u['workgroup_name'] ?? '') ?></td><td><?= role_label($u['role']) ?></td><td><?= status_label($u['status']) ?></td>
             <td class="actions">
                 <button class="small" onclick='fillUser(<?= json_attr($u) ?>)'>编辑</button>
-                <?php if ($u['role'] !== 'admin'): ?><form method="post" action="?action=delete_user" onsubmit="return confirm('确定删除用户？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small danger">删除</button></form><?php else: ?>管理员账户<?php endif; ?>
+                <?php if ($u['role'] !== 'super_admin' && ($u['role'] !== 'admin' || (int)$u['id'] !== (int)($_SESSION['user_id'] ?? 0))): ?><form method="post" action="?action=reset_user_password" onsubmit="return confirm('确定为该用户重置密码？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small blue">重置密码</button></form><?php endif; ?>
+                <?php if (!in_array($u['role'], ['super_admin', 'admin'], true)): ?><form method="post" action="?action=delete_user" onsubmit="return confirm('确定删除用户？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small danger">删除</button></form><?php else: ?><?= $u['role'] === 'super_admin' ? '超管账户' : '管理员账户' ?><?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>
     <?php if (!$users): ?><tr><td colspan="8" class="empty">暂无用户</td></tr><?php endif; ?>
-    </tbody></table>
+    </tbody></table></div>
     <?php
 }
 
@@ -1657,7 +1808,7 @@ function render_pending_users(): void
     }
     unset($user);
     ?>
-    <table><thead><tr><th>编号</th><th>用户名</th><th>邮箱</th><th>姓名</th><th>会员单位</th><th>工作组</th><th>申请时间</th><th>操作</th></tr></thead><tbody>
+    <div class="table-scroll"><table><thead><tr><th>编号</th><th>用户名</th><th>邮箱</th><th>姓名</th><th>会员单位</th><th>工作组</th><th>申请时间</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($users as $u): ?>
         <tr>
             <td><?= $u['id'] ?></td>
@@ -1675,18 +1826,18 @@ function render_pending_users(): void
         </tr>
     <?php endforeach; ?>
     <?php if (!$users): ?><tr><td colspan="8" class="empty">暂无待审核申请</td></tr><?php endif; ?>
-    </tbody></table>
+    </tbody></table></div>
     <?php
 }
 
 function role_label(string $role): string
 {
-    return ['admin' => '管理员', 'chief' => '首席会员', 'member' => '普通会员'][$role] ?? $role;
+    return ['super_admin' => '超管', 'admin' => '管理员', 'chief' => '首席会员', 'member' => '普通会员'][$role] ?? $role;
 }
 
 function status_label(string $status): string
 {
-    return ['active' => '正常', 'pending' => '待审核', 'disabled' => '禁用'][$status] ?? $status;
+    return ['active' => '启用', 'pending' => '待审核', 'disabled' => '禁用'][$status] ?? $status;
 }
 
 function render_user_modal(): void
@@ -1700,25 +1851,47 @@ function render_user_modal(): void
             <h3 id="userFormTitle">编辑用户</h3>
             <input type="hidden" name="id" id="user_id">
             <div class="form-grid two">
-                <section>
+                <section class="user-basic-section">
                     <h4>基本信息</h4>
                     <label>用户名 *</label><input name="username" id="user_username" maxlength="20" required>
                     <label>邮箱 *</label><input name="email" id="user_email" maxlength="50" required>
                     <label>姓名 *</label><input name="real_name" id="user_real_name" maxlength="20" required>
                     <label>工作组</label><select name="workgroup_id" id="user_workgroup_id"><?php options($groups, 'name'); ?></select>
                     <label>会员单位</label><select name="member_unit_id" id="user_member_unit_id"><?php options($units, 'company_name'); ?></select>
-                    <label>角色 *</label><select name="role" id="user_role"><option value="admin">管理员</option><option value="chief">首席会员</option><option value="member">普通会员</option></select>
-                    <label>状态 *</label><select name="status" id="user_status"><option value="active">正常</option><option value="pending">待审核</option><option value="disabled">禁用</option></select>
-                    <label>密码 *</label><input name="password" type="password"><small>编辑时留空表示不修改密码</small>
+                    <label>角色 *</label><select name="role" id="user_role"><option value="super_admin" disabled>超管</option><option value="admin">管理员</option><option value="chief">首席会员</option><option value="member">普通会员</option></select>
+                    <label>状态 *</label><select name="status" id="user_status"><option value="active">启用</option><option value="disabled">禁用</option></select>
                 </section>
                 <section>
                     <h4>文件夹权限设置</h4>
-                    <div class="hint">选择用户可以访问的文件夹；选中父文件夹时自动包含子文件夹。</div>
-                    <div class="tree boxed"><?= render_dir_tree(['role' => 'admin', 'id' => 0], 0, 'checkbox') ?></div>
+                    <div class="tree boxed user-permission-tree"><?= render_dir_tree(['role' => 'admin', 'id' => 0], 0, 'checkbox') ?></div>
                 </section>
             </div>
             <div class="modal-actions"><button type="button" class="muted" onclick="closeModal('userForm')">取消</button><button class="primary">保存</button></div>
         </form>
+    </div>
+    <?php
+}
+
+function render_reset_password_result_modal(): void
+{
+    $result = $_SESSION['reset_password_result'] ?? null;
+    unset($_SESSION['reset_password_result']);
+    if (!$result) {
+        return;
+    }
+    ?>
+    <div class="modal show" id="resetPasswordResult">
+        <div class="modal-box narrow">
+            <button type="button" class="close" onclick="closeModal('resetPasswordResult')">×</button>
+            <h3>密码已重置</h3>
+            <p class="confirm-copy">用户：<?= e($result['real_name']) ?>（<?= e($result['username']) ?> / <?= e($result['email']) ?>）</p>
+            <label>新密码</label>
+            <div class="copy-row">
+                <input id="reset_password_value" value="<?= e($result['password']) ?>" readonly>
+                <button type="button" class="primary" onclick="copyResetPassword()">复制</button>
+            </div>
+            <div class="modal-actions"><button type="button" class="primary" onclick="closeModal('resetPasswordResult')">关闭</button></div>
+        </div>
     </div>
     <?php
 }
@@ -1755,9 +1928,9 @@ function render_workgroups(): void
             <a class="button outline compact" href="?page=users&tab=groups">重置</a>
             <button type="button" class="primary" onclick="newWorkgroup()">新增工作组</button>
         </form>
-        <table><thead><tr><th>编号</th><th>工作组名称</th><th>描述</th><th>操作</th></tr></thead><tbody>
+        <div class="table-scroll"><table><thead><tr><th>编号</th><th>工作组名称</th><th>描述</th><th>操作</th></tr></thead><tbody>
         <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['name']) ?></td><td><?= e($r['description']) ?></td><td class="actions"><button class="small" onclick='fillWorkgroup(<?= json_attr($r) ?>)'>编辑</button><form method="post" action="?action=delete_workgroup" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form></td></tr><?php endforeach; ?>
-        </tbody></table>
+        </tbody></table></div>
     </div>
     <div class="modal" id="workgroupForm"><form class="modal-box narrow" method="post" action="?action=save_workgroup"><button type="button" class="close" onclick="closeModal('workgroupForm')">×</button><h3 id="workgroupFormTitle">编辑工作组</h3><input type="hidden" name="id" id="workgroup_id"><label>工作组名称 *</label><input name="name" id="workgroup_name" required><label>描述</label><textarea name="description" id="workgroup_description"></textarea><div class="modal-actions"><button type="button" class="muted" onclick="closeModal('workgroupForm')">取消</button><button class="primary">保存</button></div></form></div>
     <?php
@@ -1779,7 +1952,7 @@ function render_units(): void
         $where[] = 'm.workgroup_id = ?';
         $params[] = $workgroupId;
     }
-    $sql = 'SELECT m.*, w.name AS workgroup_name FROM member_units m JOIN workgroups w ON w.id=m.workgroup_id' . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY m.id';
+    $sql = "SELECT m.*, w.name AS workgroup_name FROM member_units m JOIN workgroups w ON w.id=m.workgroup_id" . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . " ORDER BY CASE WHEN m.company_name = '星闪联盟' THEN 0 ELSE 1 END, m.id";
     $stmt = db()->prepare($sql);
     $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1797,9 +1970,9 @@ function render_units(): void
             <a class="button outline compact" href="?page=users&tab=units">重置</a>
             <button type="button" class="primary" onclick="newUnit()">新增会员单位</button>
         </form>
-        <table><thead><tr><th>编号</th><th>工作组</th><th>公司名称</th><th>备注</th><th>操作</th></tr></thead><tbody>
-        <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['workgroup_name']) ?></td><td><?= e($r['company_name']) ?></td><td><?= e($r['remark']) ?></td><td class="actions"><button class="small" onclick='fillUnit(<?= json_attr($r) ?>)'>编辑</button><form method="post" action="?action=delete_unit" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form></td></tr><?php endforeach; ?>
-        </tbody></table>
+        <div class="table-scroll"><table><thead><tr><th>编号</th><th>工作组</th><th>公司名称</th><th>备注</th><th>操作</th></tr></thead><tbody>
+        <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['workgroup_name']) ?></td><td><?= e($r['company_name']) ?></td><td><?= e($r['remark']) ?></td><td class="actions"><button class="small" onclick='fillUnit(<?= json_attr($r) ?>)'>编辑</button><?php if ($r['company_name'] !== '星闪联盟'): ?><form method="post" action="?action=delete_unit" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form><?php endif; ?></td></tr><?php endforeach; ?>
+        </tbody></table></div>
     </div>
     <div class="modal" id="unitForm"><form class="modal-box narrow" method="post" action="?action=save_unit"><button type="button" class="close" onclick="closeModal('unitForm')">×</button><h3 id="unitFormTitle">编辑会员单位</h3><input type="hidden" name="id" id="unit_id"><label>工作组 *</label><select name="workgroup_id" id="unit_workgroup_id"><?php options($groups, 'name'); ?></select><label>公司 *</label><input name="company_name" id="unit_company_name" required><label>备注</label><textarea name="remark" id="unit_remark"></textarea><div class="modal-actions"><button type="button" class="muted" onclick="closeModal('unitForm')">取消</button><button class="primary">保存</button></div></form></div>
     <?php
@@ -1814,23 +1987,58 @@ function render_proposals(array $user): void
     }
 }
 
-function proposal_rows(?int $chiefId = null): array
+function proposal_rows(?int $chiefId = null, string $keyword = '', int $workgroupId = 0, string $meetingPlace = ''): array
 {
     $sql = 'SELECT p.*, w.name AS workgroup_name, m.company_name, u.real_name AS chief_name, d.path AS dir_path FROM proposals p JOIN workgroups w ON w.id=p.workgroup_id JOIN member_units m ON m.id=p.member_unit_id JOIN users u ON u.id=p.chief_user_id JOIN directories d ON d.id=p.directory_id';
+    $where = [];
+    $params = [];
     if ($chiefId) {
-        $stmt = db()->prepare($sql . ' WHERE p.chief_user_id=? ORDER BY p.meeting_date DESC');
-        $stmt->execute([$chiefId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $where[] = 'p.chief_user_id = ?';
+        $params[] = $chiefId;
     }
-    return db()->query($sql . ' ORDER BY p.meeting_date DESC')->fetchAll(PDO::FETCH_ASSOC);
+    if ($keyword !== '') {
+        $where[] = '(p.meeting_subject LIKE ? OR p.meeting_code LIKE ? OR p.proposal_code LIKE ? OR d.path LIKE ?)';
+        $like = '%' . $keyword . '%';
+        array_push($params, $like, $like, $like, $like);
+    }
+    if ($workgroupId > 0) {
+        $where[] = 'p.workgroup_id = ?';
+        $params[] = $workgroupId;
+    }
+    if ($meetingPlace !== '') {
+        $where[] = 'p.meeting_place = ?';
+        $params[] = $meetingPlace;
+    }
+    $stmt = db()->prepare($sql . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY p.meeting_date DESC');
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function render_admin_proposals(array $user): void
 {
-    $rows = proposal_rows();
+    $keyword = trim((string)($_GET['q'] ?? ''));
+    $workgroupId = (int)($_GET['workgroup_id'] ?? 0);
+    $meetingPlace = trim((string)($_GET['meeting_place'] ?? ''));
+    $groups = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $places = db()->query('SELECT DISTINCT meeting_place FROM proposals WHERE meeting_place != "" ORDER BY meeting_place')->fetchAll(PDO::FETCH_COLUMN);
+    $rows = proposal_rows(null, $keyword, $workgroupId, $meetingPlace);
     ?>
-    <div class="page-title-row"><h2>提案管理</h2><button class="primary" onclick="newProposal()">新建提案</button></div>
-    <div class="toolbar"><input placeholder="搜索会议主题、会议编号、存储目录..."><select><option>所有工作组</option></select><select><option>所有会议地点</option></select><button class="outline">重置</button></div>
+    <div class="page-title-row"><h2>提案任务</h2></div>
+    <form class="toolbar proposal-filter-toolbar" method="get">
+        <input type="hidden" name="page" value="proposals">
+        <input name="q" value="<?= e($keyword) ?>" placeholder="搜索会议主题、会议编号、提案号、存储目录...">
+        <select name="workgroup_id">
+            <option value="">所有工作组</option>
+            <?php foreach ($groups as $group): ?><option value="<?= (int)$group['id'] ?>" <?= $workgroupId === (int)$group['id'] ? 'selected' : '' ?>><?= e($group['name']) ?></option><?php endforeach; ?>
+        </select>
+        <select name="meeting_place">
+            <option value="">所有会议地点</option>
+            <?php foreach ($places as $place): ?><option value="<?= e((string)$place) ?>" <?= $meetingPlace === (string)$place ? 'selected' : '' ?>><?= e((string)$place) ?></option><?php endforeach; ?>
+        </select>
+        <button class="primary">查询</button>
+        <a class="button outline compact" href="?page=proposals">重置</a>
+        <button type="button" class="primary" onclick="newProposal()">新建提案</button>
+    </form>
     <?php render_proposal_table($rows, $user); render_proposal_modal($user); ?>
     <?php
 }
@@ -1838,14 +2046,14 @@ function render_admin_proposals(array $user): void
 function render_chief_proposals(array $user): void
 {
     $rows = proposal_rows((int)$user['id']);
-    echo '<div class="page-title-row"><h2>提案管理</h2></div>';
+    echo '<div class="page-title-row"><h2>提案任务</h2></div>';
     render_proposal_table($rows, $user);
 }
 
 function render_proposal_table(array $rows, array $user): void
 {
     ?>
-    <table><thead><tr><th>会议时间</th><th>会议地点</th><th>会议主题</th><th>工作组</th><th>分配的提案号</th><th>存储目录</th><th>有效期</th><th>操作</th></tr></thead><tbody>
+    <div class="table-scroll"><table><thead><tr><th>会议时间</th><th>会议地点</th><th>会议主题</th><th>工作组</th><th>分配的提案号</th><th>存储目录</th><th>有效期</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($rows as $p): $expired = is_expired($p['due_date']); ?>
         <tr>
             <td><?= e(str_replace('-', '/', $p['meeting_date'])) ?></td><td><?= e($p['meeting_place']) ?></td><td><?= e($p['meeting_subject']) ?></td><td><?= e($p['workgroup_name']) ?></td><td><?= e($p['proposal_code']) ?></td><td title="<?= e($p['dir_path']) ?>"><?= e(shorten($p['dir_path'])) ?></td><td class="<?= $expired ? 'date-expired' : 'date-ok' ?>"><?= e(str_replace('-', '/', $p['due_date'])) ?></td>
@@ -1864,7 +2072,7 @@ function render_proposal_table(array $rows, array $user): void
         </tr>
     <?php endforeach; ?>
     <?php if (!$rows): ?><tr><td colspan="8" class="empty">暂无提案任务</td></tr><?php endif; ?>
-    </tbody></table>
+    </tbody></table></div>
     <?php
 }
 
