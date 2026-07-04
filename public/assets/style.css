@@ -128,7 +128,7 @@ body.files-page .content {
     height: 100vh;
     min-height: 0;
     overflow: hidden;
-    padding-top: 6px;
+    padding-top: 62px;
     padding-bottom: 14px;
 }
 .page-title-row {
@@ -218,7 +218,7 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
 .tree-panel {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 75px);
+    height: calc(100vh - 126px);
     min-height: 360px;
     overflow: hidden;
     padding: 16px 16px 24px;
@@ -232,7 +232,7 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
     scrollbar-gutter: stable;
 }
 .list-panel {
-    height: calc(100vh - 75px);
+    height: calc(100vh - 126px);
     min-height: 360px;
     min-width: 0;
     overflow-x: auto;
