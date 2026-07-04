@@ -1324,16 +1324,22 @@ function render_users(array $user): void
 {
     require_admin($user);
     $tab = $_GET['tab'] ?? 'members';
+    if ($tab === 'groups' && ($_GET['sub'] ?? '') === 'units') {
+        $tab = 'units';
+    }
     ?>
     <div class="page-title-row"><h2>用户管理</h2><?php if ($tab === 'members'): ?><button class="primary" onclick="newUser()">新增用户</button><?php endif; ?></div>
     <nav class="tabs">
         <a class="<?= $tab === 'members' ? 'active' : '' ?>" href="?page=users&tab=members">正式会员</a>
         <a class="<?= $tab === 'pending' ? 'active' : '' ?>" href="?page=users&tab=pending">待审核</a>
         <a class="<?= $tab === 'groups' ? 'active' : '' ?>" href="?page=users&tab=groups">工作组管理</a>
+        <a class="<?= $tab === 'units' ? 'active' : '' ?>" href="?page=users&tab=units">会员单位</a>
     </nav>
     <?php
     if ($tab === 'groups') {
-        render_group_tabs();
+        render_workgroups();
+    } elseif ($tab === 'units') {
+        render_units();
     } elseif ($tab === 'pending') {
         echo '<div class="panel empty-panel">注册审核流程第一版预留，用户由管理员手动新增。</div>';
     } else {
@@ -1412,13 +1418,6 @@ function options(array $rows, string $label, ?int $selected = null): void
     foreach ($rows as $row) {
         echo '<option value="' . (int)$row['id'] . '" ' . ($selected === (int)$row['id'] ? 'selected' : '') . '>' . e($row[$label]) . '</option>';
     }
-}
-
-function render_group_tabs(): void
-{
-    $sub = $_GET['sub'] ?? 'workgroups';
-    echo '<nav class="tabs sub"><a class="' . ($sub === 'workgroups' ? 'active' : '') . '" href="?page=users&tab=groups&sub=workgroups">工作组管理</a><a class="' . ($sub === 'units' ? 'active' : '') . '" href="?page=users&tab=groups&sub=units">会员单位</a></nav>';
-    $sub === 'units' ? render_units() : render_workgroups();
 }
 
 function render_workgroups(): void
