@@ -61,7 +61,7 @@ jobs:
       - name: Prepare remote directories
         run: |
           ssh -i ~/.ssh/aliyun_deploy_key -p "$ALIYUN_PORT" "$ALIYUN_USER@$ALIYUN_HOST" \
-            "mkdir -p '$ALIYUN_TARGET_DIR/storage/uploads' '$ALIYUN_TARGET_DIR/storage/captcha' && chmod -R ug+rwX '$ALIYUN_TARGET_DIR/storage'"
+            "mkdir -p '$ALIYUN_TARGET_DIR/storage/uploads' '$ALIYUN_TARGET_DIR/storage/captcha' && chmod ug+rwX '$ALIYUN_TARGET_DIR/storage' '$ALIYUN_TARGET_DIR/storage/uploads' '$ALIYUN_TARGET_DIR/storage/captcha'"
 
       - name: Rsync application
         run: |
@@ -77,7 +77,7 @@ jobs:
       - name: Fix writable storage permissions
         run: |
           ssh -i ~/.ssh/aliyun_deploy_key -p "$ALIYUN_PORT" "$ALIYUN_USER@$ALIYUN_HOST" \
-            "chmod +x '$ALIYUN_TARGET_DIR'/deploy/*.sh 2>/dev/null || true; chmod -R ug+rwX '$ALIYUN_TARGET_DIR/storage'"
+            "chmod +x '$ALIYUN_TARGET_DIR'/deploy/*.sh 2>/dev/null || true; chmod ug+rwX '$ALIYUN_TARGET_DIR/storage' '$ALIYUN_TARGET_DIR/storage/uploads' '$ALIYUN_TARGET_DIR/storage/captcha'"
 
       - name: Health check
         if: env.PUBLIC_URL != ''
