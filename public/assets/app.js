@@ -118,6 +118,11 @@ function fillUser(user) {
   openModal('userForm');
 }
 
+function reviewUser(user) {
+  fillUser(user);
+  document.getElementById('userFormTitle').textContent = '审核注册申请';
+}
+
 function newUser() {
   const form = document.querySelector('#userForm form');
   if (form) form.reset();

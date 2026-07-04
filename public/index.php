@@ -401,6 +401,12 @@ function handle_actions(): void
     if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         login_action();
     }
+    if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        register_action();
+    }
+    if ($action === 'forgot_password' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        forgot_password_action();
+    }
     if ($action === 'file' && isset($_GET['id'])) {
         file_response((int)$_GET['id'], $_GET['mode'] ?? 'download');
     }
@@ -412,6 +418,8 @@ function handle_actions(): void
         match ($action) {
             'save_user' => save_user($user),
             'delete_user' => delete_user($user),
+            'approve_user' => approve_user($user),
+            'reject_user' => reject_user($user),
             'save_workgroup' => save_workgroup($user),
             'delete_workgroup' => delete_workgroup($user),
             'save_unit' => save_unit($user),
@@ -467,22 +475,111 @@ function captcha(): never
 
 function login_action(): void
 {
-    $captcha = strtoupper(trim($_POST['captcha'] ?? ''));
-    if ($captcha === '' || $captcha !== ($_SESSION['captcha'] ?? '')) {
-        flash('验证码错误', 'error');
-        redirect('?page=login');
-    }
+    verify_captcha('?page=login');
     $account = trim($_POST['account'] ?? '');
     $password = (string)($_POST['password'] ?? '');
-    $stmt = db()->prepare('SELECT * FROM users WHERE (username = ? OR email = ?) AND status = "active"');
+    $stmt = db()->prepare('SELECT * FROM users WHERE username = ? OR email = ?');
     $stmt->execute([$account, $account]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user || !password_verify($password, $user['password_hash'])) {
         flash('账号或密码错误', 'error');
         redirect('?page=login');
     }
+    if ($user['status'] === 'pending') {
+        flash('账号正在审核中，请等待管理员审核通过后再登录', 'error');
+        redirect('?page=login');
+    }
+    if ($user['status'] !== 'active') {
+        flash('账号已被禁用，请联系管理员', 'error');
+        redirect('?page=login');
+    }
     $_SESSION['user_id'] = (int)$user['id'];
     redirect('?page=files');
+}
+
+function verify_captcha(string $redirectUrl): void
+{
+    $captcha = strtoupper(trim($_POST['captcha'] ?? ''));
+    if ($captcha === '' || $captcha !== ($_SESSION['captcha'] ?? '')) {
+        flash('验证码错误', 'error');
+        redirect($redirectUrl);
+    }
+}
+
+function validate_password_pair(string $password, string $confirm): void
+{
+    if (strlen($password) < 6) {
+        throw new RuntimeException('密码至少需要 6 位');
+    }
+    if ($password !== $confirm) {
+        throw new RuntimeException('两次输入的密码不一致');
+    }
+}
+
+function register_action(): void
+{
+    verify_captcha('?page=register');
+    try {
+        $username = trim($_POST['username'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $realName = trim($_POST['real_name'] ?? '');
+        $password = (string)($_POST['password'] ?? '');
+        $confirm = (string)($_POST['confirm_password'] ?? '');
+        $workgroupId = (int)($_POST['workgroup_id'] ?? 0) ?: null;
+        $memberUnitId = (int)($_POST['member_unit_id'] ?? 0) ?: null;
+        if ($username === '' || $email === '' || $realName === '') {
+            throw new RuntimeException('请完整填写注册信息');
+        }
+        if (!preg_match('/^[A-Za-z0-9_]{3,20}$/', $username)) {
+            throw new RuntimeException('用户名需为 3-20 位字母、数字或下划线');
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('邮箱格式不正确');
+        }
+        validate_password_pair($password, $confirm);
+        $stmt = db()->prepare('
+            INSERT INTO users(username, email, real_name, password_hash, role, status, workgroup_id, member_unit_id, created_at)
+            VALUES(?, ?, ?, ?, "member", "pending", ?, ?, ?)
+        ');
+        $stmt->execute([$username, $email, $realName, password_hash($password, PASSWORD_DEFAULT), $workgroupId, $memberUnitId, now()]);
+        flash('注册申请已提交，请等待管理员审核');
+        redirect('?page=login');
+    } catch (PDOException $e) {
+        flash('用户名或邮箱已存在', 'error');
+        redirect('?page=register');
+    } catch (Throwable $e) {
+        flash($e->getMessage(), 'error');
+        redirect('?page=register');
+    }
+}
+
+function forgot_password_action(): void
+{
+    verify_captcha('?page=forgot_password');
+    try {
+        $account = trim($_POST['account'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $realName = trim($_POST['real_name'] ?? '');
+        $password = (string)($_POST['password'] ?? '');
+        $confirm = (string)($_POST['confirm_password'] ?? '');
+        if ($account === '' || $email === '' || $realName === '') {
+            throw new RuntimeException('请完整填写账号验证信息');
+        }
+        validate_password_pair($password, $confirm);
+        $stmt = db()->prepare('SELECT * FROM users WHERE (username = ? OR email = ?) AND email = ? AND real_name = ? AND status = "active"');
+        $stmt->execute([$account, $account, $email, $realName]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$user) {
+            throw new RuntimeException('账号信息校验失败，或账号尚未审核通过');
+        }
+        db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+            ->execute([password_hash($password, PASSWORD_DEFAULT), (int)$user['id']]);
+        flash('密码已重置，请使用新密码登录');
+        redirect('?page=login');
+    } catch (Throwable $e) {
+        flash($e->getMessage(), 'error');
+        redirect('?page=forgot_password');
+    }
 }
 
 function require_admin(array $user): void
@@ -503,12 +600,7 @@ function change_password(array $user): void
     if (!password_verify($currentPassword, $user['password_hash'])) {
         throw new RuntimeException('原密码不正确');
     }
-    if (strlen($newPassword) < 6) {
-        throw new RuntimeException('新密码至少需要 6 位');
-    }
-    if ($newPassword !== $confirmPassword) {
-        throw new RuntimeException('两次输入的新密码不一致');
-    }
+    validate_password_pair($newPassword, $confirmPassword);
     $stmt = db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
     $stmt->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int)$user['id']]);
 }
@@ -529,6 +621,18 @@ function save_user(array $user): void
     ];
     if ($data[0] === '' || $data[1] === '' || $data[2] === '') {
         throw new RuntimeException('请填写用户必填项');
+    }
+    if (!preg_match('/^[A-Za-z0-9_]{3,20}$/', $data[0])) {
+        throw new RuntimeException('用户名需为 3-20 位字母、数字或下划线');
+    }
+    if (!filter_var($data[1], FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('邮箱格式不正确');
+    }
+    if (!in_array($data[3], ['admin', 'chief', 'member'], true)) {
+        throw new RuntimeException('用户角色不正确');
+    }
+    if (!in_array($data[4], ['active', 'pending', 'disabled'], true)) {
+        throw new RuntimeException('用户状态不正确');
     }
     if ($id > 0) {
         if ($password !== '') {
@@ -565,6 +669,20 @@ function delete_user(array $user): void
         throw new RuntimeException('不能删除管理员账号');
     }
     db()->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
+}
+
+function approve_user(array $user): void
+{
+    require_admin($user);
+    $id = (int)($_POST['id'] ?? 0);
+    db()->prepare('UPDATE users SET status = "active" WHERE id = ? AND status = "pending"')->execute([$id]);
+}
+
+function reject_user(array $user): void
+{
+    require_admin($user);
+    $id = (int)($_POST['id'] ?? 0);
+    db()->prepare('UPDATE users SET status = "disabled" WHERE id = ? AND status = "pending"')->execute([$id]);
 }
 
 function save_workgroup(array $user): void
@@ -999,10 +1117,11 @@ function file_response(int $id, string $mode): never
 handle_actions();
 $user = current_user();
 $page = $_GET['page'] ?? ($user ? 'files' : 'login');
-if (!$user && $page !== 'login') {
+$publicPages = ['login', 'register', 'forgot_password'];
+if (!$user && !in_array($page, $publicPages, true)) {
     redirect('?page=login');
 }
-if ($user && $page === 'login') {
+if ($user && in_array($page, $publicPages, true)) {
     redirect('?page=files');
 }
 
@@ -1015,9 +1134,9 @@ if ($user && $page === 'login') {
     <title><?= APP_NAME ?></title>
     <link rel="stylesheet" href="assets/style.css?v=<?= filemtime(__DIR__ . '/assets/style.css') ?>">
 </head>
-<body class="<?= $page === 'login' ? 'login-body' : ($page === 'files' ? 'files-page' : '') ?>">
-<?php if ($page === 'login'): ?>
-    <?php render_login(); ?>
+<body class="<?= in_array($page, $publicPages, true) ? 'login-body' : ($page === 'files' ? 'files-page' : '') ?>">
+<?php if (in_array($page, $publicPages, true)): ?>
+    <?php render_public_page($page); ?>
 <?php else: ?>
     <?php render_app($user, $page); ?>
 <?php endif; ?>
@@ -1025,6 +1144,15 @@ if ($user && $page === 'login') {
 </body>
 </html>
 <?php
+
+function render_public_page(string $page): void
+{
+    match ($page) {
+        'register' => render_register(),
+        'forgot_password' => render_forgot_password(),
+        default => render_login(),
+    };
+}
 
 function render_login(): void
 {
@@ -1045,7 +1173,72 @@ function render_login(): void
                     <img src="?action=captcha&v=<?= time() ?>" onclick="this.src='?action=captcha&v='+Date.now()" alt="captcha">
                 </div>
                 <button class="primary wide">登录</button>
-                <p class="login-links"><a onclick="alert('请联系管理员创建账号')">注册</a><a onclick="alert('请联系管理员重置密码')">忘记密码</a></p>
+                <p class="login-links"><a href="?page=register">注册</a><a href="?page=forgot_password">忘记密码</a></p>
+            </div>
+        </form>
+    </main>
+    <?php
+}
+
+function render_register(): void
+{
+    $flash = flash();
+    $groups = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $units = db()->query('SELECT * FROM member_units ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    ?>
+    <main class="login-page">
+        <form class="login-card auth-card" method="post" action="?action=register">
+            <h1>会员注册申请</h1>
+            <div class="login-inner">
+                <?php render_flash($flash); ?>
+                <div class="grid2">
+                    <label>用户名 *<input name="username" maxlength="20" required></label>
+                    <label>邮箱 *<input name="email" type="email" maxlength="50" required></label>
+                    <label>姓名 *<input name="real_name" maxlength="20" required></label>
+                    <label>工作组 <select name="workgroup_id"><?php options($groups, 'name'); ?></select></label>
+                    <label class="wide-field">会员单位 <select name="member_unit_id"><?php options($units, 'company_name'); ?></select></label>
+                    <label>密码 *<input name="password" type="password" minlength="6" required></label>
+                    <label>确认密码 *<input name="confirm_password" type="password" minlength="6" required></label>
+                </div>
+                <label>请输入验证码：</label>
+                <div class="captcha-row">
+                    <input name="captcha" required autocomplete="off">
+                    <img src="?action=captcha&v=<?= time() ?>" onclick="this.src='?action=captcha&v='+Date.now()" alt="captcha">
+                </div>
+                <button class="primary wide">提交注册申请</button>
+                <p class="login-links"><a href="?page=login">返回登录</a><a href="?page=forgot_password">忘记密码</a></p>
+            </div>
+        </form>
+    </main>
+    <?php
+}
+
+function render_forgot_password(): void
+{
+    $flash = flash();
+    ?>
+    <main class="login-page">
+        <form class="login-card auth-card" method="post" action="?action=forgot_password">
+            <h1>重置密码</h1>
+            <div class="login-inner">
+                <?php render_flash($flash); ?>
+                <label>用户名或邮箱账号 *</label>
+                <input name="account" required>
+                <label>注册邮箱 *</label>
+                <input name="email" type="email" required>
+                <label>姓名 *</label>
+                <input name="real_name" required>
+                <div class="grid2">
+                    <label>新密码 *<input name="password" type="password" minlength="6" required></label>
+                    <label>确认新密码 *<input name="confirm_password" type="password" minlength="6" required></label>
+                </div>
+                <label>请输入验证码：</label>
+                <div class="captcha-row">
+                    <input name="captcha" required autocomplete="off">
+                    <img src="?action=captcha&v=<?= time() ?>" onclick="this.src='?action=captcha&v='+Date.now()" alt="captcha">
+                </div>
+                <button class="primary wide">重置密码</button>
+                <p class="login-links"><a href="?page=login">返回登录</a><a href="?page=register">注册账号</a></p>
             </div>
         </form>
     </main>
@@ -1382,7 +1575,8 @@ function render_users(array $user): void
     } elseif ($tab === 'units') {
         render_units();
     } elseif ($tab === 'pending') {
-        echo '<div class="panel empty-panel">注册审核流程第一版预留，用户由管理员手动新增。</div>';
+        render_pending_users();
+        render_user_modal();
     } else {
         render_user_table();
         render_user_modal();
@@ -1438,16 +1632,49 @@ function render_user_table(): void
         <a class="button outline compact" href="?page=users&tab=members">重置</a>
         <button type="button" class="primary" onclick="newUser()">新增用户</button>
     </form>
-    <table><thead><tr><th>编号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>操作</th></tr></thead><tbody>
+    <table><thead><tr><th>编号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($users as $u): ?>
         <tr>
-            <td><?= $u['id'] ?></td><td><?= e($u['email']) ?></td><td><?= e($u['real_name']) ?></td><td><?= e($u['company_name'] ?? '') ?></td><td><?= e($u['workgroup_name'] ?? '') ?></td><td><?= role_label($u['role']) ?></td>
+            <td><?= $u['id'] ?></td><td><?= e($u['email']) ?></td><td><?= e($u['real_name']) ?></td><td><?= e($u['company_name'] ?? '') ?></td><td><?= e($u['workgroup_name'] ?? '') ?></td><td><?= role_label($u['role']) ?></td><td><?= status_label($u['status']) ?></td>
             <td class="actions">
                 <button class="small" onclick='fillUser(<?= json_attr($u) ?>)'>编辑</button>
                 <?php if ($u['role'] !== 'admin'): ?><form method="post" action="?action=delete_user" onsubmit="return confirm('确定删除用户？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small danger">删除</button></form><?php else: ?>管理员账户<?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>
+    <?php if (!$users): ?><tr><td colspan="8" class="empty">暂无用户</td></tr><?php endif; ?>
+    </tbody></table>
+    <?php
+}
+
+function render_pending_users(): void
+{
+    $stmt = db()->prepare('SELECT u.*, w.name AS workgroup_name, m.company_name FROM users u LEFT JOIN workgroups w ON w.id=u.workgroup_id LEFT JOIN member_units m ON m.id=u.member_unit_id WHERE u.status = "pending" ORDER BY u.id DESC');
+    $stmt->execute();
+    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($users as &$user) {
+        $user['permission_ids'] = [];
+    }
+    unset($user);
+    ?>
+    <table><thead><tr><th>编号</th><th>用户名</th><th>邮箱</th><th>姓名</th><th>会员单位</th><th>工作组</th><th>申请时间</th><th>操作</th></tr></thead><tbody>
+    <?php foreach ($users as $u): ?>
+        <tr>
+            <td><?= $u['id'] ?></td>
+            <td><?= e($u['username']) ?></td>
+            <td><?= e($u['email']) ?></td>
+            <td><?= e($u['real_name']) ?></td>
+            <td><?= e($u['company_name'] ?? '') ?></td>
+            <td><?= e($u['workgroup_name'] ?? '') ?></td>
+            <td><?= e($u['created_at']) ?></td>
+            <td class="actions">
+                <form method="post" action="?action=approve_user"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small primary">通过</button></form>
+                <button class="small" onclick='reviewUser(<?= json_attr($u) ?>)'>编辑</button>
+                <form method="post" action="?action=reject_user" onsubmit="return confirm('确定驳回该注册申请？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small danger">驳回</button></form>
+            </td>
+        </tr>
+    <?php endforeach; ?>
+    <?php if (!$users): ?><tr><td colspan="8" class="empty">暂无待审核申请</td></tr><?php endif; ?>
     </tbody></table>
     <?php
 }
@@ -1455,6 +1682,11 @@ function render_user_table(): void
 function role_label(string $role): string
 {
     return ['admin' => '管理员', 'chief' => '首席会员', 'member' => '普通会员'][$role] ?? $role;
+}
+
+function status_label(string $status): string
+{
+    return ['active' => '正常', 'pending' => '待审核', 'disabled' => '禁用'][$status] ?? $status;
 }
 
 function render_user_modal(): void
@@ -1476,7 +1708,7 @@ function render_user_modal(): void
                     <label>工作组</label><select name="workgroup_id" id="user_workgroup_id"><?php options($groups, 'name'); ?></select>
                     <label>会员单位</label><select name="member_unit_id" id="user_member_unit_id"><?php options($units, 'company_name'); ?></select>
                     <label>角色 *</label><select name="role" id="user_role"><option value="admin">管理员</option><option value="chief">首席会员</option><option value="member">普通会员</option></select>
-                    <label>状态 *</label><select name="status" id="user_status"><option value="active">正常</option><option value="disabled">禁用</option></select>
+                    <label>状态 *</label><select name="status" id="user_status"><option value="active">正常</option><option value="pending">待审核</option><option value="disabled">禁用</option></select>
                     <label>密码 *</label><input name="password" type="password"><small>编辑时留空表示不修改密码</small>
                 </section>
                 <section>
