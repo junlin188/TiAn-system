@@ -556,6 +556,16 @@ tbody tr:nth-child(even) { background: #fff; }
     padding: 6px 10px;
     font-size: 13px;
 }
+.workgroup-filter-toolbar {
+    grid-template-columns: minmax(180px, 260px) 68px 58px 96px;
+    align-items: center;
+    gap: 10px;
+}
+.workgroup-filter-toolbar .compact {
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
 .panel-toolbar {
     display: flex;
     justify-content: flex-end;
@@ -685,6 +695,10 @@ tbody tr:nth-child(even) { background: #fff; }
     }
     .user-filter-toolbar {
         grid-template-columns: minmax(130px, 1fr) 110px 98px 56px 52px 78px;
+        gap: 6px;
+    }
+    .workgroup-filter-toolbar {
+        grid-template-columns: minmax(160px, 1fr) 56px 52px 84px;
         gap: 6px;
     }
     .span2, .wide-field { grid-column: auto; }

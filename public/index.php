@@ -1460,10 +1460,28 @@ function options(array $rows, string $label, ?int $selected = null): void
 
 function render_workgroups(): void
 {
-    $rows = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $keyword = trim((string)($_GET['q'] ?? ''));
+    $where = [];
+    $params = [];
+    if ($keyword !== '') {
+        $where[] = '(name LIKE ? OR description LIKE ?)';
+        $like = '%' . $keyword . '%';
+        array_push($params, $like, $like);
+    }
+    $sql = 'SELECT * FROM workgroups' . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY id';
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
     <div class="panel">
-        <div class="panel-toolbar"><button class="primary" onclick="newWorkgroup()">新增工作组</button></div>
+        <form class="toolbar workgroup-filter-toolbar" method="get">
+            <input type="hidden" name="page" value="users">
+            <input type="hidden" name="tab" value="groups">
+            <input name="q" value="<?= e($keyword) ?>" placeholder="搜索工作组名称、描述...">
+            <button class="primary">查询</button>
+            <a class="button outline compact" href="?page=users&tab=groups">重置</a>
+            <button type="button" class="primary" onclick="newWorkgroup()">新增工作组</button>
+        </form>
         <table><thead><tr><th>编号</th><th>工作组名称</th><th>描述</th><th>操作</th></tr></thead><tbody>
         <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['name']) ?></td><td><?= e($r['description']) ?></td><td class="actions"><button class="small" onclick='fillWorkgroup(<?= json_attr($r) ?>)'>编辑</button><form method="post" action="?action=delete_workgroup" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form></td></tr><?php endforeach; ?>
         </tbody></table>
