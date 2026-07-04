@@ -8,7 +8,26 @@ function closeModal(id) {
   if (el) el.classList.remove('show');
 }
 
+function closeFolderActions() {
+  const menu = document.getElementById('folderActionsMenu');
+  if (menu) menu.classList.remove('show');
+}
+
+function toggleFolderActions(event) {
+  event.stopPropagation();
+  const menu = document.getElementById('folderActionsMenu');
+  if (menu) menu.classList.toggle('show');
+}
+
+function openFolderActionModal(id) {
+  closeFolderActions();
+  openModal(id);
+}
+
 document.addEventListener('click', (event) => {
+  if (!event.target.closest('.folder-actions')) {
+    closeFolderActions();
+  }
   if (event.target.classList && event.target.classList.contains('modal')) {
     event.target.classList.remove('show');
   }

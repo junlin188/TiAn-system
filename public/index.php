@@ -717,20 +717,17 @@ function copy_dir_action(array $user): void
 {
     require_admin($user);
     $sourceId = (int)$_POST['id'];
-    $targetPath = trim($_POST['target_path'] ?? '');
     $targetParentId = null;
     $targetParentPath = '';
-    if ($targetPath !== '') {
-        $stmt = db()->prepare('SELECT id, path FROM directories WHERE path=?');
-        $stmt->execute([$targetPath]);
-        $target = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$target) {
-            throw new RuntimeException('目标目录不存在');
-        }
+    $target = target_directory_from_post();
+    if ($target) {
         $targetParentId = (int)$target['id'];
         $targetParentPath = $target['path'];
     }
     $source = directory_by_id($sourceId);
+    if ($target && ((int)$target['id'] === $sourceId || str_starts_with($target['path'], $source['path'] . '/'))) {
+        throw new RuntimeException('不能复制到自身或子目录下');
+    }
     $newName = $source['name'] . '_copy_' . random_int(100, 999);
     copy_dir_recursive($sourceId, $targetParentId, $targetParentPath, $newName, (int)$user['id']);
 }
@@ -739,18 +736,12 @@ function move_dir_action(array $user): void
 {
     require_admin($user);
     $id = (int)$_POST['id'];
-    $targetPath = trim($_POST['target_path'] ?? '');
     $dir = directory_by_id($id);
-    if ($targetPath === '') {
+    $target = target_directory_from_post();
+    if (!$target) {
         $targetParentId = null;
         $targetParentPath = '';
     } else {
-        $stmt = db()->prepare('SELECT id, path FROM directories WHERE path=?');
-        $stmt->execute([$targetPath]);
-        $target = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$target) {
-            throw new RuntimeException('目标目录不存在');
-        }
         if (str_starts_with($target['path'], $dir['path'] . '/') || (int)$target['id'] === $id) {
             throw new RuntimeException('不能移动到自身或子目录下');
         }
@@ -767,6 +758,25 @@ function move_dir_action(array $user): void
         db()->prepare('UPDATE directories SET path=? WHERE id=?')->execute([$newPath . substr($child['path'], strlen($oldPath)), $child['id']]);
     }
     db()->commit();
+}
+
+function target_directory_from_post(): ?array
+{
+    $targetId = (int)($_POST['directory_id'] ?? 0);
+    if ($targetId) {
+        return directory_by_id($targetId);
+    }
+    $targetPath = trim($_POST['target_path'] ?? '');
+    if ($targetPath === '') {
+        return null;
+    }
+    $stmt = db()->prepare('SELECT id, path FROM directories WHERE path=?');
+    $stmt->execute([$targetPath]);
+    $target = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$target) {
+        throw new RuntimeException('目标目录不存在');
+    }
+    return $target;
 }
 
 function directory_by_id(int $id): array
@@ -1083,7 +1093,17 @@ function render_files(array $user): void
     <div class="page-title-row files-title-row">
         <h2><?= e($dir ?: '提案文件') ?></h2>
         <?php if (is_admin($user)): ?>
-            <button class="outline" onclick="openModal('fileOps')">文件夹操作</button>
+            <div class="folder-actions">
+                <button type="button" class="outline folder-actions-trigger" onclick="toggleFolderActions(event)">文件夹操作</button>
+                <div class="folder-actions-menu" id="folderActionsMenu">
+                    <button type="button" onclick="openFolderActionModal('createDirForm')"><span>□</span> 增加子文件夹</button>
+                    <button type="button" onclick="openFolderActionModal('uploadDirForm')"><span>▣</span> 添加文件</button>
+                    <button type="button" onclick="openFolderActionModal('renameDirForm')"><span>✎</span> 重命名</button>
+                    <button type="button" onclick="openFolderActionModal('copyDirForm')"><span>▣</span> 复制</button>
+                    <button type="button" onclick="openFolderActionModal('moveDirForm')"><span>→</span> 移动到</button>
+                    <button type="button" onclick="openFolderActionModal('deleteDirForm')" class="menu-danger"><span>▥</span> 删除</button>
+                </div>
+            </div>
         <?php endif; ?>
     </div>
     <section class="file-layout">
@@ -1119,47 +1139,82 @@ function render_files(array $user): void
         </div>
     </section>
     <?php if (is_admin($user)): ?>
-        <div class="modal" id="fileOps">
-            <div class="modal-box narrow">
-                <button class="close" onclick="closeModal('fileOps')">×</button>
-                <h3>文件夹操作</h3>
-                <form method="post" action="?action=admin_upload" enctype="multipart/form-data">
-                    <label>当前目录上传文件</label>
-                    <input type="hidden" name="directory_id" value="<?= $dirId ?>">
-                    <input type="file" name="file" required>
-                    <button class="primary">上传文件</button>
-                </form>
-                <hr>
-                <form method="post" action="?action=create_dir">
-                    <label>增加子文件夹</label>
-                    <input type="hidden" name="parent_id" value="<?= $dirId ?>">
-                    <input name="name" placeholder="文件夹名称" required>
+        <div class="modal" id="uploadDirForm">
+            <form class="modal-box narrow" method="post" action="?action=admin_upload" enctype="multipart/form-data">
+                <button type="button" class="close" onclick="closeModal('uploadDirForm')">×</button>
+                <h3>添加文件</h3>
+                <input type="hidden" name="directory_id" value="<?= $dirId ?>">
+                <label>上传到当前文件夹</label>
+                <input type="file" name="file" required>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('uploadDirForm')">取消</button>
+                    <button class="primary">上传</button>
+                </div>
+            </form>
+        </div>
+        <div class="modal" id="createDirForm">
+            <form class="modal-box narrow" method="post" action="?action=create_dir">
+                <button type="button" class="close" onclick="closeModal('createDirForm')">×</button>
+                <h3>增加子文件夹</h3>
+                <input type="hidden" name="parent_id" value="<?= $dirId ?>">
+                <label>文件夹名称 *</label>
+                <input name="name" placeholder="文件夹名称" required>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('createDirForm')">取消</button>
                     <button class="primary">新增</button>
-                </form>
-                <hr>
-                <form method="post" action="?action=rename_dir">
-                    <label>重命名当前文件夹</label>
-                    <input type="hidden" name="id" value="<?= $dirId ?>">
-                    <input name="name" value="<?= e(basename($dir)) ?>" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal" id="renameDirForm">
+            <form class="modal-box narrow" method="post" action="?action=rename_dir">
+                <button type="button" class="close" onclick="closeModal('renameDirForm')">×</button>
+                <h3>重命名文件夹</h3>
+                <input type="hidden" name="id" value="<?= $dirId ?>">
+                <label>文件夹名称 *</label>
+                <input name="name" value="<?= e(basename($dir)) ?>" required>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('renameDirForm')">取消</button>
                     <button class="primary">保存</button>
-                </form>
-                <form method="post" action="?action=copy_dir">
-                    <label>复制当前文件夹到</label>
-                    <input type="hidden" name="id" value="<?= $dirId ?>">
-                    <input name="target_path" placeholder="目标父目录路径，留空表示复制到根目录">
+                </div>
+            </form>
+        </div>
+        <div class="modal" id="copyDirForm">
+            <form class="modal-box wide" method="post" action="?action=copy_dir">
+                <button type="button" class="close" onclick="closeModal('copyDirForm')">×</button>
+                <h3>复制文件夹</h3>
+                <input type="hidden" name="id" value="<?= $dirId ?>">
+                <label>复制到目标父文件夹</label>
+                <div class="tree boxed move-tree"><?= render_dir_tree($user, 0, 'radio') ?></div>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('copyDirForm')">取消</button>
                     <button class="blue">复制</button>
-                </form>
-                <form method="post" action="?action=move_dir">
-                    <label>移动当前文件夹到</label>
-                    <input type="hidden" name="id" value="<?= $dirId ?>">
-                    <input name="target_path" placeholder="目标父目录路径，留空表示移动到根目录">
-                    <button class="ghost">移动到</button>
-                </form>
-                <form method="post" action="?action=delete_dir" onsubmit="return confirm('确定删除当前空文件夹？')">
-                    <input type="hidden" name="id" value="<?= $dirId ?>">
-                    <button class="danger">删除当前空文件夹</button>
-                </form>
-            </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal" id="moveDirForm">
+            <form class="modal-box wide" method="post" action="?action=move_dir">
+                <button type="button" class="close" onclick="closeModal('moveDirForm')">×</button>
+                <h3>移动文件夹</h3>
+                <input type="hidden" name="id" value="<?= $dirId ?>">
+                <label>移动到目标父文件夹</label>
+                <div class="tree boxed move-tree"><?= render_dir_tree($user, 0, 'radio') ?></div>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('moveDirForm')">取消</button>
+                    <button class="primary">移动</button>
+                </div>
+            </form>
+        </div>
+        <div class="modal" id="deleteDirForm">
+            <form class="modal-box narrow" method="post" action="?action=delete_dir">
+                <button type="button" class="close" onclick="closeModal('deleteDirForm')">×</button>
+                <h3>删除文件夹</h3>
+                <input type="hidden" name="id" value="<?= $dirId ?>">
+                <p class="confirm-copy">只能删除空文件夹。确定删除当前文件夹吗？</p>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('deleteDirForm')">取消</button>
+                    <button class="danger">删除</button>
+                </div>
+            </form>
         </div>
         <div class="modal" id="renameFileForm">
             <form class="modal-box narrow" method="post" action="?action=rename_file">
