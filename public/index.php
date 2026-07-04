@@ -481,7 +481,7 @@ function login_action(): void
         redirect('?page=login');
     }
     $_SESSION['user_id'] = (int)$user['id'];
-    redirect('?page=' . ($user['role'] === 'member' ? 'files' : 'proposals'));
+    redirect('?page=files');
 }
 
 function require_admin(array $user): void
@@ -981,7 +981,7 @@ if (!$user && $page !== 'login') {
     redirect('?page=login');
 }
 if ($user && $page === 'login') {
-    redirect('?page=' . ($user['role'] === 'member' ? 'files' : 'proposals'));
+    redirect('?page=files');
 }
 
 ?>
