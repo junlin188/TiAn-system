@@ -211,7 +211,7 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
     flex: 1 1 auto;
     min-height: 0;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: scroll;
     padding-right: 6px;
     scrollbar-gutter: stable;
 }
