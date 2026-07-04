@@ -171,6 +171,14 @@ h4 {
     cursor: pointer;
 }
 .primary:hover, button:hover { filter: brightness(.96); }
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 7px 13px;
+    border-radius: 4px;
+}
 .wide { width: 100%; min-height: 48px; margin-top: 22px; font-size: 18px; }
 .outline {
     color: #53636d;
@@ -538,6 +546,16 @@ tbody tr:nth-child(even) { background: #fff; }
     gap: 16px;
     margin: 14px 0 12px;
 }
+.user-filter-toolbar {
+    grid-template-columns: minmax(150px, 220px) 140px 120px 68px 58px 92px;
+    align-items: center;
+    gap: 10px;
+}
+.user-filter-toolbar .compact {
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
 .panel-toolbar {
     display: flex;
     justify-content: flex-end;
@@ -664,6 +682,10 @@ tbody tr:nth-child(even) { background: #fff; }
     .content { margin-left: 180px; }
     .file-layout, .form-grid.two, .form-grid.three, .toolbar, .grid2 {
         grid-template-columns: 1fr;
+    }
+    .user-filter-toolbar {
+        grid-template-columns: minmax(130px, 1fr) 110px 98px 56px 52px 78px;
+        gap: 6px;
     }
     .span2, .wide-field { grid-column: auto; }
 }

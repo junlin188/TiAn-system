@@ -1328,7 +1328,7 @@ function render_users(array $user): void
         $tab = 'units';
     }
     ?>
-    <div class="page-title-row"><h2>用户管理</h2><?php if ($tab === 'members'): ?><button class="primary" onclick="newUser()">新增用户</button><?php endif; ?></div>
+    <div class="page-title-row"><h2>用户管理</h2></div>
     <nav class="tabs">
         <a class="<?= $tab === 'members' ? 'active' : '' ?>" href="?page=users&tab=members">正式会员</a>
         <a class="<?= $tab === 'pending' ? 'active' : '' ?>" href="?page=users&tab=pending">待审核</a>
@@ -1350,7 +1350,28 @@ function render_users(array $user): void
 
 function render_user_table(): void
 {
-    $users = db()->query('SELECT u.*, w.name AS workgroup_name, m.company_name FROM users u LEFT JOIN workgroups w ON w.id=u.workgroup_id LEFT JOIN member_units m ON m.id=u.member_unit_id WHERE u.status != "pending" ORDER BY u.id DESC')->fetchAll(PDO::FETCH_ASSOC);
+    $keyword = trim((string)($_GET['q'] ?? ''));
+    $workgroupId = (int)($_GET['workgroup_id'] ?? 0);
+    $role = (string)($_GET['role'] ?? '');
+    $groups = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $where = ['u.status != "pending"'];
+    $params = [];
+    if ($keyword !== '') {
+        $where[] = '(u.email LIKE ? OR u.real_name LIKE ? OR u.username LIKE ? OR m.company_name LIKE ?)';
+        $like = '%' . $keyword . '%';
+        array_push($params, $like, $like, $like, $like);
+    }
+    if ($workgroupId > 0) {
+        $where[] = 'u.workgroup_id = ?';
+        $params[] = $workgroupId;
+    }
+    if (in_array($role, ['admin', 'chief', 'member'], true)) {
+        $where[] = 'u.role = ?';
+        $params[] = $role;
+    }
+    $stmt = db()->prepare('SELECT u.*, w.name AS workgroup_name, m.company_name FROM users u LEFT JOIN workgroups w ON w.id=u.workgroup_id LEFT JOIN member_units m ON m.id=u.member_unit_id WHERE ' . implode(' AND ', $where) . ' ORDER BY u.id DESC');
+    $stmt->execute($params);
+    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($users as &$user) {
         $stmt = db()->prepare('SELECT directory_id FROM directory_permissions WHERE user_id=?');
         $stmt->execute([(int)$user['id']]);
@@ -1358,7 +1379,24 @@ function render_user_table(): void
     }
     unset($user);
     ?>
-    <div class="toolbar"><input placeholder="搜索公司、姓名、邮箱、用户名..."><select><option>所有工作组</option></select><select><option>所有角色</option></select><button class="outline">重置</button></div>
+    <form class="toolbar user-filter-toolbar" method="get">
+        <input type="hidden" name="page" value="users">
+        <input type="hidden" name="tab" value="members">
+        <input name="q" value="<?= e($keyword) ?>" placeholder="搜索公司、姓名、邮箱、用户名...">
+        <select name="workgroup_id">
+            <option value="">所有工作组</option>
+            <?php foreach ($groups as $group): ?><option value="<?= (int)$group['id'] ?>" <?= $workgroupId === (int)$group['id'] ? 'selected' : '' ?>><?= e($group['name']) ?></option><?php endforeach; ?>
+        </select>
+        <select name="role">
+            <option value="">所有角色</option>
+            <option value="admin" <?= $role === 'admin' ? 'selected' : '' ?>>管理员</option>
+            <option value="chief" <?= $role === 'chief' ? 'selected' : '' ?>>首席会员</option>
+            <option value="member" <?= $role === 'member' ? 'selected' : '' ?>>普通会员</option>
+        </select>
+        <button class="primary">查询</button>
+        <a class="button outline compact" href="?page=users&tab=members">重置</a>
+        <button type="button" class="primary" onclick="newUser()">新增用户</button>
+    </form>
     <table><thead><tr><th>编号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($users as $u): ?>
         <tr>
