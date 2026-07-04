@@ -1,0 +1,5 @@
+storage/app.sqlite
+storage/uploads/*
+storage/captcha/*
+!storage/uploads/.gitkeep
+!storage/captcha/.gitkeep
