@@ -77,7 +77,7 @@ jobs:
       - name: Fix writable storage permissions
         run: |
           ssh -i ~/.ssh/aliyun_deploy_key -p "$ALIYUN_PORT" "$ALIYUN_USER@$ALIYUN_HOST" \
-            "chmod -R ug+rwX '$ALIYUN_TARGET_DIR/storage'"
+            "chmod +x '$ALIYUN_TARGET_DIR'/deploy/*.sh 2>/dev/null || true; chmod -R ug+rwX '$ALIYUN_TARGET_DIR/storage'"
 
       - name: Health check
         if: env.PUBLIC_URL != ''
