@@ -432,6 +432,7 @@ function handle_actions(): void
             'chief_upload' => chief_upload($user),
             'chief_delete_file' => chief_delete_file($user),
             'chief_rename_file' => chief_rename_file($user),
+            'change_password' => change_password($user),
             default => null,
         };
         flash('操作成功');
@@ -489,6 +490,27 @@ function require_admin(array $user): void
     if (!is_admin($user)) {
         throw new RuntimeException('没有权限');
     }
+}
+
+function change_password(array $user): void
+{
+    $currentPassword = (string)($_POST['current_password'] ?? '');
+    $newPassword = (string)($_POST['new_password'] ?? '');
+    $confirmPassword = (string)($_POST['confirm_password'] ?? '');
+    if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+        throw new RuntimeException('请完整填写密码信息');
+    }
+    if (!password_verify($currentPassword, $user['password_hash'])) {
+        throw new RuntimeException('原密码不正确');
+    }
+    if (strlen($newPassword) < 6) {
+        throw new RuntimeException('新密码至少需要 6 位');
+    }
+    if ($newPassword !== $confirmPassword) {
+        throw new RuntimeException('两次输入的新密码不一致');
+    }
+    $stmt = db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+    $stmt->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int)$user['id']]);
 }
 
 function save_user(array $user): void
@@ -1045,7 +1067,16 @@ function render_app(array $user, string $page): void
     ?>
     <header class="topbar">
         <div class="brand">▯ <?= APP_NAME ?></div>
-        <div class="top-actions">▧ cn 中文⌄ <span>◉ <?= e($user['email']) ?>⌄</span> <a href="?action=logout">退出</a></div>
+        <div class="top-actions">
+            <span>▧ cn 中文⌄</span>
+            <div class="account-menu">
+                <button type="button" class="account-menu-trigger" onclick="toggleAccountMenu(event)">◉ <?= e($user['email']) ?></button>
+                <div class="account-menu-list" id="accountMenu">
+                    <button type="button" onclick="openChangePasswordModal()">修改密码</button>
+                    <a href="?action=logout">退出</a>
+                </div>
+            </div>
+        </div>
     </header>
     <aside class="sidebar">
         <?= nav_item('files', '▯', '提案文件', $page) ?>
@@ -1063,6 +1094,16 @@ function render_app(array $user, string $page): void
         };
         ?>
     </main>
+    <div class="modal" id="changePasswordForm">
+        <form class="modal-box narrow" method="post" action="?action=change_password">
+            <button type="button" class="close" onclick="closeModal('changePasswordForm')">×</button>
+            <h3>修改密码</h3>
+            <label>原密码 *</label><input name="current_password" id="current_password" type="password" autocomplete="current-password" required>
+            <label>新密码 *</label><input name="new_password" type="password" autocomplete="new-password" minlength="6" required>
+            <label>确认新密码 *</label><input name="confirm_password" type="password" autocomplete="new-password" minlength="6" required>
+            <div class="modal-actions"><button type="button" class="muted" onclick="closeModal('changePasswordForm')">取消</button><button class="primary">保存</button></div>
+        </form>
+    </div>
     <?php
 }
 

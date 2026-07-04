@@ -13,6 +13,26 @@ function closeFolderActions() {
   if (menu) menu.classList.remove('show');
 }
 
+function closeAccountMenu() {
+  const menu = document.getElementById('accountMenu');
+  if (menu) menu.classList.remove('show');
+}
+
+function toggleAccountMenu(event) {
+  event.stopPropagation();
+  const menu = document.getElementById('accountMenu');
+  if (menu) menu.classList.toggle('show');
+}
+
+function openChangePasswordModal() {
+  closeAccountMenu();
+  const form = document.querySelector('#changePasswordForm form');
+  if (form) form.reset();
+  openModal('changePasswordForm');
+  const input = document.getElementById('current_password');
+  if (input) input.focus();
+}
+
 function toggleFolderActions(event) {
   event.stopPropagation();
   const menu = document.getElementById('folderActionsMenu');
@@ -27,6 +47,9 @@ function openFolderActionModal(id) {
 document.addEventListener('click', (event) => {
   if (!event.target.closest('.folder-actions')) {
     closeFolderActions();
+  }
+  if (!event.target.closest('.account-menu')) {
+    closeAccountMenu();
   }
   if (event.target.classList && event.target.classList.contains('modal')) {
     event.target.classList.remove('show');
