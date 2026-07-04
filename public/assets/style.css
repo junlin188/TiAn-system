@@ -538,6 +538,13 @@ tbody tr:nth-child(even) { background: #fff; }
     gap: 16px;
     margin: 14px 0 12px;
 }
+.panel-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e1e6e9;
+    background: #fff;
+}
 .tabs {
     display: flex;
     gap: 0;

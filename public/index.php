@@ -1426,12 +1426,12 @@ function render_workgroups(): void
     $rows = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     ?>
     <div class="panel">
-        <form class="inline-form" method="post" action="?action=save_workgroup"><input name="name" placeholder="工作组名称" required><input name="description" placeholder="描述"><button class="primary">添加工作组名称</button></form>
+        <div class="panel-toolbar"><button class="primary" onclick="newWorkgroup()">新增工作组</button></div>
         <table><thead><tr><th>编号</th><th>工作组名称</th><th>描述</th><th>操作</th></tr></thead><tbody>
         <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['name']) ?></td><td><?= e($r['description']) ?></td><td class="actions"><button class="small" onclick='fillWorkgroup(<?= json_attr($r) ?>)'>编辑</button><form method="post" action="?action=delete_workgroup" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form></td></tr><?php endforeach; ?>
         </tbody></table>
     </div>
-    <div class="modal" id="workgroupForm"><form class="modal-box narrow" method="post" action="?action=save_workgroup"><button type="button" class="close" onclick="closeModal('workgroupForm')">×</button><h3>编辑工作组</h3><input type="hidden" name="id" id="workgroup_id"><label>工作组名称 *</label><input name="name" id="workgroup_name" required><label>描述</label><textarea name="description" id="workgroup_description"></textarea><div class="modal-actions"><button type="button" class="muted" onclick="closeModal('workgroupForm')">取消</button><button class="primary">保存</button></div></form></div>
+    <div class="modal" id="workgroupForm"><form class="modal-box narrow" method="post" action="?action=save_workgroup"><button type="button" class="close" onclick="closeModal('workgroupForm')">×</button><h3 id="workgroupFormTitle">编辑工作组</h3><input type="hidden" name="id" id="workgroup_id"><label>工作组名称 *</label><input name="name" id="workgroup_name" required><label>描述</label><textarea name="description" id="workgroup_description"></textarea><div class="modal-actions"><button type="button" class="muted" onclick="closeModal('workgroupForm')">取消</button><button class="primary">保存</button></div></form></div>
     <?php
 }
 

@@ -117,10 +117,23 @@ function fillUnit(unit) {
 }
 
 function fillWorkgroup(workgroup) {
+  document.getElementById('workgroupFormTitle').textContent = '编辑工作组';
   setValue('workgroup_id', workgroup.id);
   setValue('workgroup_name', workgroup.name);
   setValue('workgroup_description', workgroup.description);
   openModal('workgroupForm');
+}
+
+function newWorkgroup() {
+  const form = document.querySelector('#workgroupForm form');
+  if (form) form.reset();
+  document.getElementById('workgroupFormTitle').textContent = '新增工作组';
+  setValue('workgroup_id', '');
+  setValue('workgroup_name', '');
+  setValue('workgroup_description', '');
+  openModal('workgroupForm');
+  const input = document.getElementById('workgroup_name');
+  if (input) input.focus();
 }
 
 function fillProposal(proposal) {
