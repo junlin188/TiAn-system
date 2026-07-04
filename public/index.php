@@ -1492,11 +1492,38 @@ function render_workgroups(): void
 
 function render_units(): void
 {
-    $rows = db()->query('SELECT m.*, w.name AS workgroup_name FROM member_units m JOIN workgroups w ON w.id=m.workgroup_id ORDER BY m.id')->fetchAll(PDO::FETCH_ASSOC);
+    $keyword = trim((string)($_GET['q'] ?? ''));
+    $workgroupId = (int)($_GET['workgroup_id'] ?? 0);
     $groups = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $where = [];
+    $params = [];
+    if ($keyword !== '') {
+        $where[] = '(m.company_name LIKE ? OR m.remark LIKE ?)';
+        $like = '%' . $keyword . '%';
+        array_push($params, $like, $like);
+    }
+    if ($workgroupId > 0) {
+        $where[] = 'm.workgroup_id = ?';
+        $params[] = $workgroupId;
+    }
+    $sql = 'SELECT m.*, w.name AS workgroup_name FROM member_units m JOIN workgroups w ON w.id=m.workgroup_id' . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY m.id';
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
     <div class="panel">
-        <div class="panel-toolbar"><button class="primary" onclick="newUnit()">新增会员单位</button></div>
+        <form class="toolbar unit-filter-toolbar" method="get">
+            <input type="hidden" name="page" value="users">
+            <input type="hidden" name="tab" value="units">
+            <input name="q" value="<?= e($keyword) ?>" placeholder="搜索公司名称、备注...">
+            <select name="workgroup_id">
+                <option value="">所有工作组</option>
+                <?php foreach ($groups as $group): ?><option value="<?= (int)$group['id'] ?>" <?= $workgroupId === (int)$group['id'] ? 'selected' : '' ?>><?= e($group['name']) ?></option><?php endforeach; ?>
+            </select>
+            <button class="primary">查询</button>
+            <a class="button outline compact" href="?page=users&tab=units">重置</a>
+            <button type="button" class="primary" onclick="newUnit()">新增会员单位</button>
+        </form>
         <table><thead><tr><th>编号</th><th>工作组</th><th>公司名称</th><th>备注</th><th>操作</th></tr></thead><tbody>
         <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['workgroup_name']) ?></td><td><?= e($r['company_name']) ?></td><td><?= e($r['remark']) ?></td><td class="actions"><button class="small" onclick='fillUnit(<?= json_attr($r) ?>)'>编辑</button><form method="post" action="?action=delete_unit" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form></td></tr><?php endforeach; ?>
         </tbody></table>
