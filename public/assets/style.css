@@ -128,7 +128,7 @@ body.files-page .content {
     height: 100vh;
     min-height: 0;
     overflow: hidden;
-    padding-top: 62px;
+    padding-top: 6px;
     padding-bottom: 14px;
 }
 .page-title-row {
@@ -139,8 +139,7 @@ body.files-page .content {
     margin-bottom: 16px;
 }
 .files-title-row {
-    position: sticky;
-    top: 56px;
+    position: relative;
     z-index: 4;
     margin-bottom: 6px;
     padding-top: 6px;
@@ -219,7 +218,7 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
 .tree-panel {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 126px);
+    height: calc(100vh - 75px);
     min-height: 360px;
     overflow: hidden;
     padding: 16px 16px 24px;
@@ -233,7 +232,7 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
     scrollbar-gutter: stable;
 }
 .list-panel {
-    height: calc(100vh - 126px);
+    height: calc(100vh - 75px);
     min-height: 360px;
     min-width: 0;
     overflow-x: auto;
