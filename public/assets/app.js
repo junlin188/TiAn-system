@@ -120,3 +120,47 @@ document.addEventListener('change', (event) => {
     child.checked = target.checked;
   });
 });
+
+const TREE_STATE_KEY = 'tian.openDirectories';
+
+function readTreeState() {
+  try {
+    return JSON.parse(localStorage.getItem(TREE_STATE_KEY) || '{}');
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeTreeState(state) {
+  localStorage.setItem(TREE_STATE_KEY, JSON.stringify(state));
+}
+
+function setTreeNodeOpen(li, open) {
+  li.classList.toggle('is-open', open);
+  li.classList.toggle('is-collapsed', !open);
+  const toggle = li.querySelector(':scope > .tree-node > .tree-toggle');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.setAttribute('aria-label', open ? '折叠' : '展开');
+  }
+}
+
+document.querySelectorAll('.tree li[data-dir-id]').forEach((li) => {
+  const state = readTreeState();
+  const id = li.dataset.dirId;
+  if (Object.prototype.hasOwnProperty.call(state, id) && !li.querySelector('a.active')) {
+    setTreeNodeOpen(li, state[id]);
+  }
+});
+
+document.addEventListener('click', (event) => {
+  const toggle = event.target.closest('.tree-toggle');
+  if (!toggle) return;
+  const li = toggle.closest('li[data-dir-id]');
+  if (!li) return;
+  const open = !li.classList.contains('is-open');
+  setTreeNodeOpen(li, open);
+  const state = readTreeState();
+  state[li.dataset.dirId] = open;
+  writeTreeState(state);
+});

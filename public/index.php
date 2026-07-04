@@ -1077,7 +1077,7 @@ function render_files(array $user): void
         $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     ?>
-    <div class="page-title-row">
+    <div class="page-title-row files-title-row">
         <h2><?= e($dir ?: '提案文件') ?></h2>
         <?php if (is_admin($user)): ?>
             <button class="outline" onclick="openModal('fileOps')">文件夹操作</button>
@@ -1089,23 +1089,23 @@ function render_files(array $user): void
             <div class="tree"><?= render_dir_tree($user, $dirId, 'link') ?></div>
         </div>
         <div class="panel list-panel">
-            <table>
+            <table class="file-table">
                 <thead><tr><th>文件名</th><th>大小</th><th>上传时间</th><th>上传人</th><th>操作</th></tr></thead>
                 <tbody>
                 <?php foreach ($files as $file): ?>
                     <tr>
-                        <td>▯ <?= e($file['original_name']) ?></td>
+                        <td class="file-name" title="<?= e($file['original_name']) ?>">▯ <?= e($file['original_name']) ?></td>
                         <td><?= format_size((int)$file['size']) ?></td>
                         <td><?= e($file['created_at']) ?></td>
                         <td><?= e($file['uploader'] ?? '-') ?></td>
                         <td class="actions">
-                            <?php if (is_previewable($file)): ?><a class="btn small ghost" target="_blank" href="?action=file&mode=preview&id=<?= $file['id'] ?>">预览</a><?php endif; ?>
-                            <a class="btn small ghost" href="?action=file&mode=download&id=<?= $file['id'] ?>">下载</a>
+                            <?php if (is_previewable($file)): ?><a class="btn text-action" target="_blank" href="?action=file&mode=preview&id=<?= $file['id'] ?>">预览</a><?php endif; ?>
+                            <a class="btn text-action" href="?action=file&mode=download&id=<?= $file['id'] ?>">下载</a>
                             <?php if (is_admin($user)): ?>
-                                <button class="small" onclick="promptPost('?action=rename_file',{id:<?= $file['id'] ?>},'请输入新文件名','name',<?= js($file['original_name']) ?>)">重命名</button>
-                                <form method="post" action="?action=copy_file"><input type="hidden" name="id" value="<?= $file['id'] ?>"><button class="small blue">复制</button></form>
-                                <button class="small ghost" onclick="promptPost('?action=move_file',{id:<?= $file['id'] ?>},'请输入目标目录路径，例如 ISLA/Tdoc','target_path',<?= js($dir) ?>)">移动到</button>
-                                <form method="post" action="?action=delete_file" onsubmit="return confirm('确定删除文件？')"><input type="hidden" name="id" value="<?= $file['id'] ?>"><button class="small danger">删除</button></form>
+                                <button class="text-action" onclick="promptPost('?action=rename_file',{id:<?= $file['id'] ?>},'请输入新文件名','name',<?= js($file['original_name']) ?>)">重命名</button>
+                                <form method="post" action="?action=copy_file"><input type="hidden" name="id" value="<?= $file['id'] ?>"><button class="text-action">复制</button></form>
+                                <button class="text-action" onclick="promptPost('?action=move_file',{id:<?= $file['id'] ?>},'请输入目标目录路径，例如 ISLA/Tdoc','target_path',<?= js($dir) ?>)">移动到</button>
+                                <form method="post" action="?action=delete_file" onsubmit="return confirm('确定删除文件？')"><input type="hidden" name="id" value="<?= $file['id'] ?>"><button class="text-action danger-link">删除</button></form>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -1181,6 +1181,9 @@ function render_dir_branch(array $byParent, int $parent, int $activeId, string $
     $html = '<ul>';
     foreach ($byParent[$parent] ?? [] as $dir) {
         $id = (int)$dir['id'];
+        $hasChildren = !empty($byParent[$id]);
+        $containsActive = $activeId === $id || dir_branch_contains($byParent, $id, $activeId);
+        $isOpen = $mode !== 'link' || $containsActive;
         $label = '📁 ' . e($dir['name']);
         if ($mode === 'checkbox') {
             $label = '<label><input type="checkbox" name="directory_ids[]" value="' . $id . '" ' . (in_array($id, $checked, true) ? 'checked' : '') . '> ' . $label . '</label>';
@@ -1189,9 +1192,23 @@ function render_dir_branch(array $byParent, int $parent, int $activeId, string $
         } else {
             $label = '<a class="' . ($activeId === $id ? 'active' : '') . '" href="?page=files&dir=' . $id . '">' . $label . '</a>';
         }
-        $html .= '<li>' . $label . render_dir_branch($byParent, $id, $activeId, $mode, $checked, $radio) . '</li>';
+        $toggle = $hasChildren
+            ? '<button type="button" class="tree-toggle" aria-label="' . ($isOpen ? '折叠' : '展开') . '" aria-expanded="' . ($isOpen ? 'true' : 'false') . '"></button>'
+            : '<span class="tree-spacer"></span>';
+        $html .= '<li class="' . ($isOpen ? 'is-open' : 'is-collapsed') . '" data-dir-id="' . $id . '"><div class="tree-node">' . $toggle . $label . '</div>' . render_dir_branch($byParent, $id, $activeId, $mode, $checked, $radio) . '</li>';
     }
     return $html . '</ul>';
+}
+
+function dir_branch_contains(array $byParent, int $parent, int $activeId): bool
+{
+    foreach ($byParent[$parent] ?? [] as $dir) {
+        $id = (int)$dir['id'];
+        if ($id === $activeId || dir_branch_contains($byParent, $id, $activeId)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function format_size(int $bytes): string
