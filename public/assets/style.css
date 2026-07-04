@@ -279,6 +279,73 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
     overflow: hidden;
     padding: 16px 16px 24px;
 }
+.tree-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.tree-panel-header h3 {
+    margin: 0;
+}
+.tree-tools {
+    display: inline-flex;
+    gap: 6px;
+}
+.tree-tool-btn {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0;
+    color: #53636d;
+    border: 1px solid #b8c3ca;
+    border-radius: 4px;
+    background: #fff;
+}
+.tree-tool-btn:hover {
+    color: #007576;
+    border-color: #89bdc1;
+    background: #eef8f8;
+    filter: none;
+}
+.tree-tool-icon {
+    position: relative;
+    width: 15px;
+    height: 16px;
+}
+.tree-tool-icon::before,
+.tree-tool-icon::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    width: 9px;
+    height: 5px;
+    border-color: currentColor;
+    border-style: solid;
+}
+.expand-icon::before {
+    top: 1px;
+    border-width: 0 1px 1px 0;
+    transform: rotate(45deg);
+}
+.expand-icon::after {
+    bottom: 1px;
+    border-width: 1px 0 0 1px;
+    transform: rotate(45deg);
+}
+.collapse-icon::before {
+    top: 2px;
+    border-width: 1px 0 0 1px;
+    transform: rotate(45deg);
+}
+.collapse-icon::after {
+    bottom: 2px;
+    border-width: 0 1px 1px 0;
+    transform: rotate(45deg);
+}
 .tree-panel .tree {
     flex: 1 1 auto;
     min-height: 0;

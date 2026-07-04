@@ -184,6 +184,32 @@ function setTreeNodeOpen(li, open) {
   }
 }
 
+function treeNodesWithChildren() {
+  return Array.from(document.querySelectorAll('.tree li[data-dir-id]')).filter((li) => {
+    return li.querySelector(':scope > .tree-node > .tree-toggle');
+  });
+}
+
+function expandAllDirectories() {
+  const state = readTreeState();
+  treeNodesWithChildren().forEach((li) => {
+    setTreeNodeOpen(li, true);
+    state[li.dataset.dirId] = true;
+  });
+  writeTreeState(state);
+}
+
+function collapseAllDirectories() {
+  const state = readTreeState();
+  treeNodesWithChildren().forEach((li) => {
+    const parentList = li.parentElement;
+    const isTopLevel = parentList?.parentElement?.classList?.contains('tree');
+    setTreeNodeOpen(li, isTopLevel);
+    state[li.dataset.dirId] = isTopLevel;
+  });
+  writeTreeState(state);
+}
+
 document.querySelectorAll('.tree li[data-dir-id]').forEach((li) => {
   const state = readTreeState();
   const id = li.dataset.dirId;

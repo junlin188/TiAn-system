@@ -1108,7 +1108,17 @@ function render_files(array $user): void
     </div>
     <section class="file-layout">
         <div class="panel tree-panel">
-            <h3>文件夹结构</h3>
+            <div class="tree-panel-header">
+                <h3>文件夹结构</h3>
+                <div class="tree-tools" aria-label="文件夹结构操作">
+                    <button type="button" class="tree-tool-btn" onclick="expandAllDirectories()" title="展开所有文件夹" aria-label="展开所有文件夹">
+                        <span class="tree-tool-icon expand-icon" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="tree-tool-btn" onclick="collapseAllDirectories()" title="折叠所有文件夹" aria-label="折叠所有文件夹">
+                        <span class="tree-tool-icon collapse-icon" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
             <div class="tree"><?= render_dir_tree($user, $dirId, 'link') ?></div>
         </div>
         <div class="panel list-panel">
