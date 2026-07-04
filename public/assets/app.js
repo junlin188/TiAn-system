@@ -109,11 +109,25 @@ function newUser() {
 }
 
 function fillUnit(unit) {
+  document.getElementById('unitFormTitle').textContent = '编辑会员单位';
   setValue('unit_id', unit.id);
   setValue('unit_workgroup_id', unit.workgroup_id);
   setValue('unit_company_name', unit.company_name);
   setValue('unit_remark', unit.remark);
   openModal('unitForm');
+}
+
+function newUnit() {
+  const form = document.querySelector('#unitForm form');
+  if (form) form.reset();
+  document.getElementById('unitFormTitle').textContent = '新增会员单位';
+  setValue('unit_id', '');
+  setValue('unit_workgroup_id', '');
+  setValue('unit_company_name', '');
+  setValue('unit_remark', '');
+  openModal('unitForm');
+  const select = document.getElementById('unit_workgroup_id');
+  if (select) select.focus();
 }
 
 function fillWorkgroup(workgroup) {

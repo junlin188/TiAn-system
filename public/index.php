@@ -1441,12 +1441,12 @@ function render_units(): void
     $groups = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     ?>
     <div class="panel">
-        <form class="inline-form" method="post" action="?action=save_unit"><select name="workgroup_id" required><?php options($groups, 'name'); ?></select><input name="company_name" placeholder="公司名称" required><input name="remark" placeholder="备注"><button class="primary">添加会员单位</button></form>
+        <div class="panel-toolbar"><button class="primary" onclick="newUnit()">新增会员单位</button></div>
         <table><thead><tr><th>编号</th><th>工作组</th><th>公司名称</th><th>备注</th><th>操作</th></tr></thead><tbody>
         <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['workgroup_name']) ?></td><td><?= e($r['company_name']) ?></td><td><?= e($r['remark']) ?></td><td class="actions"><button class="small" onclick='fillUnit(<?= json_attr($r) ?>)'>编辑</button><form method="post" action="?action=delete_unit" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form></td></tr><?php endforeach; ?>
         </tbody></table>
     </div>
-    <div class="modal" id="unitForm"><form class="modal-box narrow" method="post" action="?action=save_unit"><button type="button" class="close" onclick="closeModal('unitForm')">×</button><h3>编辑会员单位</h3><input type="hidden" name="id" id="unit_id"><label>工作组 *</label><select name="workgroup_id" id="unit_workgroup_id"><?php options($groups, 'name'); ?></select><label>公司 *</label><input name="company_name" id="unit_company_name" required><label>备注</label><textarea name="remark" id="unit_remark"></textarea><div class="modal-actions"><button type="button" class="muted" onclick="closeModal('unitForm')">取消</button><button class="primary">保存</button></div></form></div>
+    <div class="modal" id="unitForm"><form class="modal-box narrow" method="post" action="?action=save_unit"><button type="button" class="close" onclick="closeModal('unitForm')">×</button><h3 id="unitFormTitle">编辑会员单位</h3><input type="hidden" name="id" id="unit_id"><label>工作组 *</label><select name="workgroup_id" id="unit_workgroup_id"><?php options($groups, 'name'); ?></select><label>公司 *</label><input name="company_name" id="unit_company_name" required><label>备注</label><textarea name="remark" id="unit_remark"></textarea><div class="modal-actions"><button type="button" class="muted" onclick="closeModal('unitForm')">取消</button><button class="primary">保存</button></div></form></div>
     <?php
 }
 
