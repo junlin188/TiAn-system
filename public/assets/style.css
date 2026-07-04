@@ -334,6 +334,9 @@ button:disabled { background: #9ca8af; cursor: not-allowed; }
     border-radius: 4px;
     background: #f8fbfb;
 }
+.move-tree {
+    max-height: 48vh;
+}
 
 table {
     width: 100%;

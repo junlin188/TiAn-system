@@ -40,6 +40,26 @@ function setValue(id, value) {
   if (el) el.value = value == null ? '' : value;
 }
 
+function openRenameFileModal(file) {
+  setValue('rename_file_id', file.id);
+  setValue('rename_file_name', file.name);
+  openModal('renameFileForm');
+  const input = document.getElementById('rename_file_name');
+  if (input) {
+    input.focus();
+    input.select();
+  }
+}
+
+function openMoveFileModal(file) {
+  setValue('move_file_id', file.id);
+  setValue('move_file_name', file.name);
+  document.querySelectorAll('#moveFileForm input[name="directory_id"]').forEach((input) => {
+    input.checked = Number(input.value) === Number(file.directory_id);
+  });
+  openModal('moveFileForm');
+}
+
 function fillUser(user) {
   document.getElementById('userFormTitle').textContent = '编辑用户';
   setValue('user_id', user.id);

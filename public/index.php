@@ -862,10 +862,13 @@ function copy_file_action(array $user): void
 function move_file_action(array $user): void
 {
     require_admin($user);
-    $targetPath = trim($_POST['target_path'] ?? '');
-    $stmt = db()->prepare('SELECT id FROM directories WHERE path=?');
-    $stmt->execute([$targetPath]);
-    $targetId = (int)$stmt->fetchColumn();
+    $targetId = (int)($_POST['directory_id'] ?? 0);
+    if (!$targetId) {
+        $targetPath = trim($_POST['target_path'] ?? '');
+        $stmt = db()->prepare('SELECT id FROM directories WHERE path=?');
+        $stmt->execute([$targetPath]);
+        $targetId = (int)$stmt->fetchColumn();
+    }
     if (!$targetId) {
         throw new RuntimeException('目标目录不存在');
     }
@@ -1102,9 +1105,9 @@ function render_files(array $user): void
                             <?php if (is_previewable($file)): ?><a class="btn text-action" target="_blank" href="?action=file&mode=preview&id=<?= $file['id'] ?>">预览</a><?php endif; ?>
                             <a class="btn text-action" href="?action=file&mode=download&id=<?= $file['id'] ?>">下载</a>
                             <?php if (is_admin($user)): ?>
-                                <button class="text-action" onclick="promptPost('?action=rename_file',{id:<?= $file['id'] ?>},'请输入新文件名','name',<?= js($file['original_name']) ?>)">重命名</button>
+                                <button type="button" class="text-action" onclick='openRenameFileModal(<?= json_attr(['id' => (int)$file['id'], 'name' => $file['original_name']]) ?>)'>重命名</button>
                                 <form method="post" action="?action=copy_file"><input type="hidden" name="id" value="<?= $file['id'] ?>"><button class="text-action">复制</button></form>
-                                <button class="text-action" onclick="promptPost('?action=move_file',{id:<?= $file['id'] ?>},'请输入目标目录路径，例如 ISLA/Tdoc','target_path',<?= js($dir) ?>)">移动到</button>
+                                <button type="button" class="text-action" onclick='openMoveFileModal(<?= json_attr(['id' => (int)$file['id'], 'name' => $file['original_name'], 'directory_id' => (int)$file['directory_id']]) ?>)'>移动到</button>
                                 <form method="post" action="?action=delete_file" onsubmit="return confirm('确定删除文件？')"><input type="hidden" name="id" value="<?= $file['id'] ?>"><button class="text-action danger-link">删除</button></form>
                             <?php endif; ?>
                         </td>
@@ -1157,6 +1160,34 @@ function render_files(array $user): void
                     <button class="danger">删除当前空文件夹</button>
                 </form>
             </div>
+        </div>
+        <div class="modal" id="renameFileForm">
+            <form class="modal-box narrow" method="post" action="?action=rename_file">
+                <button type="button" class="close" onclick="closeModal('renameFileForm')">×</button>
+                <h3>重命名文件</h3>
+                <input type="hidden" name="id" id="rename_file_id">
+                <label>文件名 *</label>
+                <input name="name" id="rename_file_name" required>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('renameFileForm')">取消</button>
+                    <button class="primary">保存</button>
+                </div>
+            </form>
+        </div>
+        <div class="modal" id="moveFileForm">
+            <form class="modal-box wide" method="post" action="?action=move_file">
+                <button type="button" class="close" onclick="closeModal('moveFileForm')">×</button>
+                <h3>移动文件</h3>
+                <input type="hidden" name="id" id="move_file_id">
+                <label>当前文件</label>
+                <input id="move_file_name" readonly>
+                <label>目标文件夹 *</label>
+                <div class="tree boxed move-tree"><?= render_dir_tree($user, 0, 'radio', [], $dirId) ?></div>
+                <div class="modal-actions">
+                    <button type="button" class="muted" onclick="closeModal('moveFileForm')">取消</button>
+                    <button class="primary">移动</button>
+                </div>
+            </form>
         </div>
     <?php endif; ?>
     <?php
