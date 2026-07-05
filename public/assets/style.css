@@ -813,10 +813,29 @@ body.users-page .tabs {
     opacity: 0;
     cursor: pointer;
 }
+.proposal-upload-list {
+    display: grid;
+    gap: 4px;
+    width: 280px;
+    max-width: 100%;
+}
+.proposal-upload-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+}
+.proposal-upload-row form {
+    display: flex;
+    justify-content: flex-end;
+}
 .upload-chip {
-    display: inline-block;
-    max-width: 220px;
+    display: block;
+    min-width: 0;
     color: #168374;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 

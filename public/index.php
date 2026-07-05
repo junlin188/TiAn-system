@@ -2167,13 +2167,19 @@ function render_uploads_for_proposal(int $proposalId, array $user, bool $expired
 {
     $stmt = db()->prepare('SELECT * FROM files WHERE proposal_id=? ORDER BY created_at DESC');
     $stmt->execute([$proposalId]);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $file) {
-        echo '<span class="upload-chip">▯ ' . e(shorten($file['original_name'], 18)) . '</span>';
+    $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!$files) {
+        return;
+    }
+    echo '<div class="proposal-upload-list">';
+    foreach ($files as $file) {
+        echo '<div class="proposal-upload-row"><span class="upload-chip" title="' . e($file['original_name']) . '">▯ ' . e(shorten($file['original_name'], 22)) . '</span>';
         if (!$expired && (int)$file['uploader_id'] === (int)$user['id']) {
-            echo '<button class="small ghost" onclick="promptPost(\'?action=chief_rename_file\',{id:' . (int)$file['id'] . '},\'请输入新文件名\',\'name\',' . js($file['original_name']) . ')">改名</button>';
             echo '<form method="post" action="?action=chief_delete_file" onsubmit="return confirm(\'确定删除文件？\')"><input type="hidden" name="id" value="' . (int)$file['id'] . '"><button class="small danger">删</button></form>';
         }
+        echo '</div>';
     }
+    echo '</div>';
 }
 
 function shorten(string $value, int $len = 24): string
