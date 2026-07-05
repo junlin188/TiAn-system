@@ -868,6 +868,7 @@ body.users-page .tabs {
     grid-column: auto;
 }
 .proposal-field-grid {
+    display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
 }
