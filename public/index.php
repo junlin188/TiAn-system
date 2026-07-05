@@ -2205,9 +2205,8 @@ function render_proposal_modal(array $user): void
                     </div>
                 </section>
                 <section>
-                    <h4>存储目录 *</h4>
+                    <h4 class="proposal-dir-title">存储目录 *<small>选择一个文件夹作为提案的存储目录</small></h4>
                     <div class="tree boxed proposal-dir-tree"><?= render_dir_tree($user, 0, 'radio', [], id_by_path('ISLA')) ?></div>
-                    <small>选择一个文件夹作为提案的存储目录</small>
                 </section>
             </div>
             <div class="modal-actions"><button type="button" class="muted" onclick="closeModal('proposalForm')">取消</button><button class="primary">保存</button></div>

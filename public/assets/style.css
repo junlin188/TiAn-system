@@ -895,6 +895,16 @@ body.users-page .tabs {
     margin-top: -5px;
     text-align: left;
 }
+.proposal-dir-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.proposal-dir-title small {
+    display: inline;
+    margin-top: 0;
+    font-weight: 400;
+}
 .proposal-dir-tree {
     max-height: 440px;
 }
