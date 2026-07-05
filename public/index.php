@@ -1808,7 +1808,7 @@ function render_user_table(array $currentUser): void
         $where[] = 'u.role = ?';
         $params[] = $role;
     }
-    $stmt = db()->prepare('SELECT u.*, w.name AS workgroup_name, m.company_name FROM users u LEFT JOIN workgroups w ON w.id=u.workgroup_id LEFT JOIN member_units m ON m.id=u.member_unit_id WHERE ' . implode(' AND ', $where) . ' ORDER BY u.id DESC');
+    $stmt = db()->prepare('SELECT u.*, w.name AS workgroup_name, m.company_name FROM users u LEFT JOIN workgroups w ON w.id=u.workgroup_id LEFT JOIN member_units m ON m.id=u.member_unit_id WHERE ' . implode(' AND ', $where) . ' ORDER BY CASE WHEN u.role = \'super_admin\' THEN 0 ELSE 1 END, u.id ASC');
     $stmt->execute($params);
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($users as &$user) {
@@ -1837,15 +1837,15 @@ function render_user_table(array $currentUser): void
         <a class="button outline compact" href="?page=users&tab=members">重置</a>
         <button type="button" class="primary" onclick="newUser()">新增用户</button>
     </form>
-    <div class="table-scroll"><table><thead><tr><th>编号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
-    <?php foreach ($users as $u): ?>
+    <div class="table-scroll"><table><thead><tr><th>序号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
+    <?php foreach ($users as $index => $u): ?>
         <?php
         $canManage = can_manage_user($currentUser, $u);
         $canResetPassword = $u['role'] !== 'super_admin' && (int)$u['id'] !== (int)($currentUser['id'] ?? 0);
         $canDelete = $canManage && (int)$u['id'] !== (int)($currentUser['id'] ?? 0);
         ?>
         <tr>
-            <td><?= $u['id'] ?></td><td><?= e($u['email']) ?></td><td><?= e($u['real_name']) ?></td><td><?= e($u['company_name'] ?? '') ?></td><td><?= e($u['workgroup_name'] ?? '') ?></td><td><?= role_label($u['role']) ?></td><td><?= status_label($u['status']) ?></td>
+            <td><?= $index + 1 ?></td><td><?= e($u['email']) ?></td><td><?= e($u['real_name']) ?></td><td><?= e($u['company_name'] ?? '') ?></td><td><?= e($u['workgroup_name'] ?? '') ?></td><td><?= role_label($u['role']) ?></td><td><?= status_label($u['status']) ?></td>
             <td class="actions">
                 <?php if ($canManage): ?><button class="small" onclick='fillUser(<?= json_attr($u) ?>)'>编辑</button><?php endif; ?>
                 <?php if ($canResetPassword): ?><form method="post" action="?action=reset_user_password" onsubmit="return confirm('确定为该用户重置密码？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small blue">重置密码</button></form><?php endif; ?>
