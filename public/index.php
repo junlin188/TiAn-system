@@ -2200,7 +2200,7 @@ function render_proposal_modal(array $user): void
                         <label>会议地点 *<input name="meeting_place" id="proposal_meeting_place" required></label>
                         <label>工作组 *<select name="workgroup_id" id="proposal_workgroup_id" required><?php options($groups, 'name'); ?></select></label>
                         <label>首席会员 *<select name="chief_user_id" id="proposal_chief_user_id" required><?php options($chiefs, 'email'); ?></select></label>
-                        <label>分配的提案号 *<input name="proposal_code" id="proposal_proposal_code" required></label>
+                        <label>提案号 *<input name="proposal_code" id="proposal_proposal_code" required></label>
                         <label>描述<textarea name="description" id="proposal_description"></textarea></label>
                     </div>
                 </section>
