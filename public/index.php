@@ -2185,7 +2185,7 @@ function render_proposal_modal(array $user): void
     $chiefs = db()->query('SELECT * FROM users WHERE role="chief" AND status="active" ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     ?>
     <div class="modal" id="proposalForm">
-        <form class="modal-box xwide" method="post" action="?action=save_proposal">
+        <form class="modal-box xwide proposal-modal-box" method="post" action="?action=save_proposal">
             <button type="button" class="close" onclick="closeModal('proposalForm')">×</button>
             <h3 id="proposalFormTitle">新建提案</h3>
             <input type="hidden" name="id" id="proposal_id">

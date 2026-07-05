@@ -822,6 +822,7 @@ body.users-page .tabs {
 .modal-box.narrow { width: min(520px, 96vw); }
 .modal-box.wide { width: min(980px, 96vw); }
 .modal-box.xwide { width: min(1260px, 98vw); }
+.proposal-modal-box { width: min(1030px, 96vw); }
 .close {
     position: absolute;
     top: 16px;
@@ -861,8 +862,9 @@ body.users-page .tabs {
     gap: 24px;
 }
 .proposal-form-grid {
-    grid-template-columns: minmax(620px, 760px) 360px;
+    grid-template-columns: 430px 390px;
     align-items: start;
+    gap: 22px;
 }
 .proposal-basic-section {
     grid-column: auto;
@@ -874,7 +876,7 @@ body.users-page .tabs {
 }
 .proposal-field-grid label {
     display: grid;
-    grid-template-columns: 88px minmax(260px, 420px);
+    grid-template-columns: 82px minmax(240px, 330px);
     gap: 10px;
     align-items: center;
     min-width: 0;
