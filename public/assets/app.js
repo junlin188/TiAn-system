@@ -51,9 +51,6 @@ document.addEventListener('click', (event) => {
   if (!event.target.closest('.account-menu')) {
     closeAccountMenu();
   }
-  if (event.target.classList && event.target.classList.contains('modal')) {
-    event.target.classList.remove('show');
-  }
 });
 
 function postForm(action, values) {
