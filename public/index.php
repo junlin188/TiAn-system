@@ -2017,23 +2017,21 @@ function render_units(): void
     $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
-    <div class="panel">
-        <form class="toolbar unit-filter-toolbar" method="get">
-            <input type="hidden" name="page" value="users">
-            <input type="hidden" name="tab" value="units">
-            <input name="q" value="<?= e($keyword) ?>" placeholder="搜索公司名称、备注...">
-            <select name="workgroup_id">
-                <option value="">所有工作组</option>
-                <?php foreach ($groups as $group): ?><option value="<?= (int)$group['id'] ?>" <?= $workgroupId === (int)$group['id'] ? 'selected' : '' ?>><?= e($group['name']) ?></option><?php endforeach; ?>
-            </select>
-            <button class="primary">查询</button>
-            <a class="button outline compact" href="?page=users&tab=units">重置</a>
-            <button type="button" class="primary" onclick="newUnit()">新增会员单位</button>
-        </form>
-        <div class="table-scroll"><table><thead><tr><th>编号</th><th>工作组</th><th>公司名称</th><th>备注</th><th>操作</th></tr></thead><tbody>
-        <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['workgroup_name']) ?></td><td><?= e($r['company_name']) ?></td><td><?= e($r['remark']) ?></td><td class="actions"><button class="small" onclick='fillUnit(<?= json_attr($r) ?>)'>编辑</button><?php if ($r['company_name'] !== '星闪联盟'): ?><form method="post" action="?action=delete_unit" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form><?php endif; ?></td></tr><?php endforeach; ?>
-        </tbody></table></div>
-    </div>
+    <form class="toolbar unit-filter-toolbar" method="get">
+        <input type="hidden" name="page" value="users">
+        <input type="hidden" name="tab" value="units">
+        <input name="q" value="<?= e($keyword) ?>" placeholder="搜索公司名称、备注...">
+        <select name="workgroup_id">
+            <option value="">所有工作组</option>
+            <?php foreach ($groups as $group): ?><option value="<?= (int)$group['id'] ?>" <?= $workgroupId === (int)$group['id'] ? 'selected' : '' ?>><?= e($group['name']) ?></option><?php endforeach; ?>
+        </select>
+        <button class="primary">查询</button>
+        <a class="button outline compact" href="?page=users&tab=units">重置</a>
+        <button type="button" class="primary" onclick="newUnit()">新增会员单位</button>
+    </form>
+    <div class="table-scroll"><table><thead><tr><th>编号</th><th>工作组</th><th>公司名称</th><th>备注</th><th>操作</th></tr></thead><tbody>
+    <?php foreach ($rows as $r): ?><tr><td><?= $r['id'] ?></td><td><?= e($r['workgroup_name']) ?></td><td><?= e($r['company_name']) ?></td><td><?= e($r['remark']) ?></td><td class="actions"><button class="small" onclick='fillUnit(<?= json_attr($r) ?>)'>编辑</button><?php if ($r['company_name'] !== '星闪联盟'): ?><form method="post" action="?action=delete_unit" onsubmit="return confirm('确定删除？')"><input type="hidden" name="id" value="<?= $r['id'] ?>"><button class="small danger">删除</button></form><?php endif; ?></td></tr><?php endforeach; ?>
+    </tbody></table></div>
     <div class="modal" id="unitForm"><form class="modal-box narrow" method="post" action="?action=save_unit"><button type="button" class="close" onclick="closeModal('unitForm')">×</button><h3 id="unitFormTitle">编辑会员单位</h3><input type="hidden" name="id" id="unit_id"><label>工作组 *</label><select name="workgroup_id" id="unit_workgroup_id"><?php options($groups, 'name'); ?></select><label>公司 *</label><input name="company_name" id="unit_company_name" required><label>备注</label><textarea name="remark" id="unit_remark"></textarea><div class="modal-actions"><button type="button" class="muted" onclick="closeModal('unitForm')">取消</button><button class="primary">保存</button></div></form></div>
     <?php
 }
