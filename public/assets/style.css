@@ -874,7 +874,7 @@ body.users-page .tabs {
 }
 .proposal-field-grid label {
     display: grid;
-    grid-template-columns: 108px minmax(0, 1fr);
+    grid-template-columns: 88px minmax(0, 1fr);
     gap: 10px;
     align-items: center;
     min-width: 0;
@@ -894,6 +894,9 @@ body.users-page .tabs {
     grid-column: 2;
     margin-top: -5px;
     text-align: left;
+}
+.proposal-dir-tree {
+    max-height: 440px;
 }
 .span2 { grid-column: span 2; }
 .grid2 {

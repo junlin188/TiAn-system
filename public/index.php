@@ -2206,7 +2206,7 @@ function render_proposal_modal(array $user): void
                 </section>
                 <section>
                     <h4>存储目录 *</h4>
-                    <div class="tree boxed"><?= render_dir_tree($user, 0, 'radio', [], id_by_path('ISLA')) ?></div>
+                    <div class="tree boxed proposal-dir-tree"><?= render_dir_tree($user, 0, 'radio', [], id_by_path('ISLA')) ?></div>
                     <small>选择一个文件夹作为提案的存储目录</small>
                 </section>
             </div>
