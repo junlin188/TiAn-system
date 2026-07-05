@@ -109,16 +109,25 @@ function applySuperAdminLock(locked) {
   setDisabled('user_member_unit_id', locked);
   setDisabled('user_role', locked);
   setDisabled('user_status', locked);
-  document.querySelectorAll('#userForm input[name="directory_ids[]"]').forEach((input) => {
-    if (locked) input.checked = true;
-    input.disabled = locked;
-  });
+  applyDirectoryPermissionLock(locked);
   if (locked) {
     const alliance = findOptionByText('user_member_unit_id', '星闪联盟');
     if (alliance) setValue('user_member_unit_id', alliance.value);
     setValue('user_role', 'super_admin');
     setValue('user_status', 'active');
   }
+}
+
+function applyDirectoryPermissionLock(locked) {
+  document.querySelectorAll('#userForm input[name="directory_ids[]"]').forEach((input) => {
+    if (locked) input.checked = true;
+    input.disabled = locked;
+  });
+}
+
+function syncRolePermissions() {
+  const role = document.getElementById('user_role')?.value;
+  applyDirectoryPermissionLock(role === 'admin' || role === 'super_admin');
 }
 
 function openRenameFileModal(file) {
@@ -153,10 +162,12 @@ function fillUser(user) {
   setValue('user_role', user.role);
   setValue('user_status', user.status);
   const isSuperAdmin = user.role === 'super_admin';
+  const hasAllDirectories = isSuperAdmin || user.role === 'admin';
   document.querySelectorAll('#userForm input[name="directory_ids[]"]').forEach((input) => {
-    input.checked = isSuperAdmin || (Array.isArray(user.permission_ids) && user.permission_ids.includes(Number(input.value)));
+    input.checked = hasAllDirectories || (Array.isArray(user.permission_ids) && user.permission_ids.includes(Number(input.value)));
   });
   applySuperAdminLock(isSuperAdmin);
+  syncRolePermissions();
   openModal('userForm');
 }
 
@@ -177,6 +188,7 @@ function newUser() {
     input.checked = false;
     input.disabled = false;
   });
+  syncRolePermissions();
   openModal('userForm');
 }
 
@@ -253,6 +265,10 @@ function newProposal() {
 
 document.addEventListener('change', (event) => {
   const target = event.target;
+  if (target.matches('#user_role')) {
+    syncRolePermissions();
+    return;
+  }
   if (!target.matches('.tree input[type="checkbox"]')) return;
   const li = target.closest('li');
   if (!li) return;

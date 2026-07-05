@@ -793,7 +793,7 @@ function save_user(array $user): void
         $id = (int)db()->lastInsertId();
     }
     db()->prepare('DELETE FROM directory_permissions WHERE user_id = ?')->execute([$id]);
-    if ($editingSuperAdmin) {
+    if ($editingSuperAdmin || $data[3] === 'admin') {
         grant_all_dirs($id);
     } else {
         foreach ($_POST['directory_ids'] ?? [] as $dirId) {
