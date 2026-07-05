@@ -106,6 +106,29 @@ hr { border: 0; border-top: 1px solid #e3e8eb; margin: 14px 0; }
     font-size: 14px;
 }
 .top-actions a { color: #fff; }
+.language-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #d1eef0;
+}
+.language-switch select {
+    width: auto;
+    min-height: 28px;
+    padding: 3px 24px 3px 6px;
+    color: #d1eef0;
+    border: 0;
+    background-color: transparent;
+    cursor: pointer;
+}
+.language-switch select:focus {
+    outline: 1px solid rgba(255, 255, 255, 0.55);
+    outline-offset: 2px;
+}
+.language-switch option {
+    color: #1f2d3d;
+    background: #fff;
+}
 .account-menu {
     position: relative;
 }

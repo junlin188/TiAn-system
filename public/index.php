@@ -1460,7 +1460,13 @@ function render_app(array $user, string $page): void
     <header class="topbar">
         <div class="brand">▯ <?= APP_NAME ?></div>
         <div class="top-actions">
-            <span>▧ cn 中文⌄</span>
+            <label class="language-switch" aria-label="语言切换">
+                <span>▧</span>
+                <select id="languageSelect" onchange="setLanguagePreference(this.value)">
+                    <option value="zh">中文</option>
+                    <option value="en">英文</option>
+                </select>
+            </label>
             <div class="account-menu">
                 <button type="button" class="account-menu-trigger" onclick="toggleAccountMenu(event)">◉ <?= e($user['email']) ?></button>
                 <div class="account-menu-list" id="accountMenu">

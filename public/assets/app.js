@@ -44,6 +44,12 @@ function openFolderActionModal(id) {
   openModal(id);
 }
 
+function setLanguagePreference(value) {
+  const lang = value === 'en' ? 'en' : 'zh';
+  localStorage.setItem('tian_language', lang);
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+}
+
 document.addEventListener('click', (event) => {
   if (!event.target.closest('.folder-actions')) {
     closeFolderActions();
@@ -51,6 +57,14 @@ document.addEventListener('click', (event) => {
   if (!event.target.closest('.account-menu')) {
     closeAccountMenu();
   }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const languageSelect = document.getElementById('languageSelect');
+  if (!languageSelect) return;
+  const savedLanguage = localStorage.getItem('tian_language') || 'zh';
+  languageSelect.value = savedLanguage === 'en' ? 'en' : 'zh';
+  setLanguagePreference(languageSelect.value);
 });
 
 function postForm(action, values) {
