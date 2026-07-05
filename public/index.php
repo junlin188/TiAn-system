@@ -1860,14 +1860,39 @@ function render_user_table(array $currentUser): void
 
 function render_pending_users(): void
 {
-    $stmt = db()->prepare('SELECT u.*, w.name AS workgroup_name, m.company_name FROM users u LEFT JOIN workgroups w ON w.id=u.workgroup_id LEFT JOIN member_units m ON m.id=u.member_unit_id WHERE u.status = "pending" ORDER BY u.id DESC');
-    $stmt->execute();
+    $keyword = trim((string)($_GET['q'] ?? ''));
+    $workgroupId = (int)($_GET['workgroup_id'] ?? 0);
+    $groups = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+    $where = ['u.status = "pending"'];
+    $params = [];
+    if ($keyword !== '') {
+        $where[] = '(u.email LIKE ? OR u.real_name LIKE ? OR u.username LIKE ? OR m.company_name LIKE ?)';
+        $like = '%' . $keyword . '%';
+        array_push($params, $like, $like, $like, $like);
+    }
+    if ($workgroupId > 0) {
+        $where[] = 'u.workgroup_id = ?';
+        $params[] = $workgroupId;
+    }
+    $stmt = db()->prepare('SELECT u.*, w.name AS workgroup_name, m.company_name FROM users u LEFT JOIN workgroups w ON w.id=u.workgroup_id LEFT JOIN member_units m ON m.id=u.member_unit_id WHERE ' . implode(' AND ', $where) . ' ORDER BY u.id DESC');
+    $stmt->execute($params);
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($users as &$user) {
         $user['permission_ids'] = [];
     }
     unset($user);
     ?>
+    <form class="toolbar pending-filter-toolbar" method="get">
+        <input type="hidden" name="page" value="users">
+        <input type="hidden" name="tab" value="pending">
+        <input name="q" value="<?= e($keyword) ?>" placeholder="搜索公司、姓名、邮箱、用户名...">
+        <select name="workgroup_id">
+            <option value="">所有工作组</option>
+            <?php foreach ($groups as $group): ?><option value="<?= (int)$group['id'] ?>" <?= $workgroupId === (int)$group['id'] ? 'selected' : '' ?>><?= e($group['name']) ?></option><?php endforeach; ?>
+        </select>
+        <button class="primary">查询</button>
+        <a class="button outline compact" href="?page=users&tab=pending">重置</a>
+    </form>
     <div class="table-scroll"><table><thead><tr><th>编号</th><th>用户名</th><th>邮箱</th><th>姓名</th><th>会员单位</th><th>工作组</th><th>申请时间</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($users as $u): ?>
         <tr>

@@ -698,6 +698,18 @@ body.users-page .tabs {
     padding: 6px 10px;
     font-size: 13px;
 }
+.pending-filter-toolbar {
+    grid-template-columns: minmax(150px, 220px) 140px 68px 58px minmax(92px, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    background: #f5f7f9;
+}
+.pending-filter-toolbar .compact {
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
 .workgroup-filter-toolbar {
     grid-template-columns: minmax(180px, 260px) 68px 58px minmax(96px, 1fr);
     align-items: center;
@@ -730,6 +742,7 @@ body.users-page .tabs {
     background: #f5f7f9;
 }
 .user-filter-toolbar > :last-child,
+.pending-filter-toolbar > :last-child,
 .workgroup-filter-toolbar > :last-child,
 .unit-filter-toolbar > :last-child,
 .proposal-filter-toolbar > :last-child {
@@ -916,6 +929,10 @@ body.users-page .tabs {
     }
     .user-filter-toolbar {
         grid-template-columns: minmax(130px, 1fr) 110px 98px 56px 52px minmax(78px, 1fr);
+        gap: 6px;
+    }
+    .pending-filter-toolbar {
+        grid-template-columns: minmax(130px, 1fr) 110px 56px 52px minmax(78px, 1fr);
         gap: 6px;
     }
     .workgroup-filter-toolbar {
