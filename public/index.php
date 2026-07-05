@@ -397,13 +397,34 @@ function allowed_dir_ids(array $user): array
     }
     $stmt = db()->prepare('SELECT directory_id FROM directory_permissions WHERE user_id = ?');
     $stmt->execute([$user['id']]);
-    $base = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-    $all = $base;
-    foreach ($base as $dirId) {
-        $all = array_merge($all, descendant_dir_ids($dirId));
-    }
-    $cache[$key] = array_values(array_unique($all));
+    $cache[$key] = array_values(array_unique(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN))));
     return $cache[$key];
+}
+
+function visible_dir_ids(array $user): array
+{
+    $allowed = allowed_dir_ids($user);
+    $visible = $allowed;
+    foreach ($allowed as $dirId) {
+        $visible = array_merge($visible, ancestor_dir_ids($dirId));
+    }
+    return array_values(array_unique($visible));
+}
+
+function ancestor_dir_ids(int $dirId): array
+{
+    $ids = [];
+    $stmt = db()->prepare('SELECT parent_id FROM directories WHERE id = ?');
+    while ($dirId > 0) {
+        $stmt->execute([$dirId]);
+        $parentId = (int)$stmt->fetchColumn();
+        if ($parentId <= 0) {
+            break;
+        }
+        $ids[] = $parentId;
+        $dirId = $parentId;
+    }
+    return $ids;
 }
 
 function descendant_dir_ids(int $dirId): array
@@ -1645,7 +1666,9 @@ function render_files(array $user): void
 function render_dir_tree(array $user, int $activeId = 0, string $mode = 'link', ?array $checked = null, ?int $radio = null): string
 {
     $dirs = all_dirs();
-    $visible = is_admin($user) ? array_map(fn($d) => (int)$d['id'], $dirs) : allowed_dir_ids($user);
+    $allIds = array_map(fn($d) => (int)$d['id'], $dirs);
+    $allowed = is_admin($user) ? $allIds : allowed_dir_ids($user);
+    $visible = is_admin($user) ? $allIds : visible_dir_ids($user);
     $byParent = [];
     foreach ($dirs as $dir) {
         if (!in_array((int)$dir['id'], $visible, true) && !is_admin($user)) {
@@ -1653,14 +1676,15 @@ function render_dir_tree(array $user, int $activeId = 0, string $mode = 'link', 
         }
         $byParent[$dir['parent_id'] ?? 0][] = $dir;
     }
-    return render_dir_branch($byParent, 0, $activeId, $mode, $checked ?? [], $radio);
+    return render_dir_branch($byParent, 0, $activeId, $mode, $checked ?? [], $radio, $allowed);
 }
 
-function render_dir_branch(array $byParent, int $parent, int $activeId, string $mode, array $checked, ?int $radio): string
+function render_dir_branch(array $byParent, int $parent, int $activeId, string $mode, array $checked, ?int $radio, array $allowed): string
 {
     $html = '<ul>';
     foreach ($byParent[$parent] ?? [] as $dir) {
         $id = (int)$dir['id'];
+        $isAllowed = in_array($id, $allowed, true);
         $hasChildren = !empty($byParent[$id]);
         $containsActive = $activeId === $id || dir_branch_contains($byParent, $id, $activeId);
         $isOpen = $mode !== 'link' || $containsActive;
@@ -1669,13 +1693,15 @@ function render_dir_branch(array $byParent, int $parent, int $activeId, string $
             $label = '<label><input type="checkbox" name="directory_ids[]" value="' . $id . '" ' . (in_array($id, $checked, true) ? 'checked' : '') . '> ' . $label . '</label>';
         } elseif ($mode === 'radio') {
             $label = '<label><input type="radio" name="directory_id" value="' . $id . '" ' . ($radio === $id ? 'checked' : '') . ' required> ' . $label . '</label>';
+        } elseif (!$isAllowed) {
+            $label = '<span class="tree-link disabled">' . $label . '</span>';
         } else {
             $label = '<a class="' . ($activeId === $id ? 'active' : '') . '" href="?page=files&dir=' . $id . '">' . $label . '</a>';
         }
         $toggle = $hasChildren
             ? '<button type="button" class="tree-toggle" aria-label="' . ($isOpen ? '折叠' : '展开') . '" aria-expanded="' . ($isOpen ? 'true' : 'false') . '"></button>'
             : '<span class="tree-spacer"></span>';
-        $html .= '<li class="' . ($isOpen ? 'is-open' : 'is-collapsed') . '" data-dir-id="' . $id . '"><div class="tree-node">' . $toggle . $label . '</div>' . render_dir_branch($byParent, $id, $activeId, $mode, $checked, $radio) . '</li>';
+        $html .= '<li class="' . ($isOpen ? 'is-open' : 'is-collapsed') . '" data-dir-id="' . $id . '"><div class="tree-node">' . $toggle . $label . '</div>' . render_dir_branch($byParent, $id, $activeId, $mode, $checked, $radio, $allowed) . '</li>';
     }
     return $html . '</ul>';
 }

@@ -505,7 +505,7 @@ body.users-page .panel {
     flex: 0 0 18px;
     width: 18px;
 }
-.tree a, .tree label {
+.tree a, .tree label, .tree-link {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -515,6 +515,10 @@ body.users-page .panel {
     padding: 4px 9px;
     border-radius: 4px;
     white-space: nowrap;
+}
+.tree-link.disabled {
+    color: #7c8b93;
+    cursor: default;
 }
 .tree a.active {
     min-width: 170px;
