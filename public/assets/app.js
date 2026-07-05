@@ -44,10 +44,191 @@ function openFolderActionModal(id) {
   openModal(id);
 }
 
+const UI_TRANSLATIONS = {
+  '星闪提案系统': 'SparkLink Proposal System',
+  '▯ 星闪提案系统': '▯ SparkLink Proposal System',
+  '提案文件': 'Proposal Files',
+  '用户管理': 'User Management',
+  '提案管理': 'Proposal Management',
+  '修改密码': 'Change Password',
+  '退出': 'Logout',
+  '原密码 *': 'Current Password *',
+  '新密码 *': 'New Password *',
+  '确认新密码 *': 'Confirm New Password *',
+  '取消': 'Cancel',
+  '保存': 'Save',
+  '确定': 'OK',
+  '复制': 'Copy',
+  '编辑': 'Edit',
+  '删除': 'Delete',
+  '删': 'Del',
+  '查询': 'Search',
+  '重置': 'Reset',
+  '下载': 'Download',
+  '重命名': 'Rename',
+  '移动到': 'Move To',
+  '上传': 'Upload',
+  '新增': 'Add',
+  '驳回': 'Reject',
+  '文件夹操作': 'Folder Actions',
+  '增加子文件夹': 'Add Subfolder',
+  '添加文件': 'Add File',
+  '文件夹结构': 'Folder Structure',
+  '展开所有文件夹': 'Expand All Folders',
+  '折叠所有文件夹': 'Collapse All Folders',
+  '上传到当前文件夹': 'Upload to Current Folder',
+  '文件夹名称 *': 'Folder Name *',
+  '文件夹名称': 'Folder Name',
+  '重命名文件夹': 'Rename Folder',
+  '复制文件夹': 'Copy Folder',
+  '复制到目标父文件夹': 'Copy to Parent Folder',
+  '移动文件夹': 'Move Folder',
+  '移动到目标父文件夹': 'Move to Parent Folder',
+  '删除文件夹': 'Delete Folder',
+  '只能删除空文件夹。确定删除当前文件夹吗？': 'Only empty folders can be deleted. Delete the current folder?',
+  '重命名文件': 'Rename File',
+  '移动文件': 'Move File',
+  '当前文件': 'Current File',
+  '目标文件夹 *': 'Target Folder *',
+  '文件名': 'File Name',
+  '大小': 'Size',
+  '上传时间': 'Upload Time',
+  '上传人': 'Uploader',
+  '操作': 'Actions',
+  '暂无文件': 'No Files',
+  '正式会员': 'Members',
+  '待审核': 'Pending Review',
+  '工作组管理': 'Workgroups',
+  '会员单位': 'Member Units',
+  '所有工作组': 'All Workgroups',
+  '所有角色': 'All Roles',
+  '所有会议地点': 'All Meeting Places',
+  '新增用户': 'Add User',
+  '编辑用户': 'Edit User',
+  '审核注册申请': 'Review Registration',
+  '重置密码': 'Reset Password',
+  '序号': 'No.',
+  '编号': 'ID',
+  '用户名': 'Username',
+  '邮箱': 'Email',
+  '姓名': 'Name',
+  '公司名称': 'Company',
+  '工作组': 'Workgroup',
+  '角色': 'Role',
+  '状态': 'Status',
+  '会员单位': 'Member Unit',
+  '申请时间': 'Applied At',
+  '暂无用户': 'No Users',
+  '用户名 *': 'Username *',
+  '邮箱 *': 'Email *',
+  '姓名 *': 'Name *',
+  '工作组 *': 'Workgroup *',
+  '会员单位 *': 'Member Unit *',
+  '首席会员 *': 'Chief Member *',
+  '角色 *': 'Role *',
+  '状态 *': 'Status *',
+  '文件夹权限设置': 'Folder Permissions',
+  '超管': 'Super Admin',
+  '管理员': 'Admin',
+  '首席会员': 'Chief Member',
+  '普通会员': 'Member',
+  '启用': 'Enabled',
+  '禁用': 'Disabled',
+  '超管账户': 'Super Admin Account',
+  '管理员账户': 'Admin Account',
+  '密码已重置': 'Password Reset',
+  '新密码': 'New Password',
+  '工作组名称': 'Workgroup Name',
+  '工作组名称 *': 'Workgroup Name *',
+  '描述': 'Description',
+  '新增工作组': 'Add Workgroup',
+  '编辑工作组': 'Edit Workgroup',
+  '暂无工作组': 'No Workgroups',
+  '备注': 'Remark',
+  '公司 *': 'Company *',
+  '新增会员单位': 'Add Member Unit',
+  '编辑会员单位': 'Edit Member Unit',
+  '提案任务': 'Proposal Tasks',
+  '新建提案': 'New Proposal',
+  '编辑提案': 'Edit Proposal',
+  '会议时间': 'Meeting Date',
+  '会议时间 *': 'Meeting Date *',
+  '会议地点': 'Meeting Place',
+  '会议地点 *': 'Meeting Place *',
+  '会议主题': 'Meeting Subject',
+  '会议主题 *': 'Meeting Subject *',
+  '会议编号 *': 'Meeting Code *',
+  '提案号': 'Proposal No.',
+  '提案号 *': 'Proposal No. *',
+  '存储目录': 'Storage Directory',
+  '存储目录 *': 'Storage Directory *',
+  '有效期': 'Due Date',
+  '有效期 *': 'Due Date *',
+  '上传文件': 'Upload File',
+  '已过期': 'Expired',
+  '暂无提案任务': 'No Proposal Tasks',
+  '默认为创建后7天': 'Default is 7 days after creation',
+  '选择一个文件夹作为提案的存储目录': 'Select a folder as the proposal storage directory',
+  '搜索公司、姓名、邮箱、用户名...': 'Search company, name, email, username...',
+  '搜索工作组名称、描述...': 'Search workgroup name, description...',
+  '搜索公司名称、备注...': 'Search company name, remark...',
+  '搜索会议主题、会议编号、提案号、存储目录...': 'Search subject, meeting code, proposal no., storage...'
+};
+
+const EN_TO_UI_TRANSLATIONS = Object.fromEntries(
+  Object.entries(UI_TRANSLATIONS).map(([zh, en]) => [en, zh])
+);
+
+function currentLanguage() {
+  return localStorage.getItem('tian_language') === 'en' ? 'en' : 'zh';
+}
+
+function translateString(value, lang) {
+  const dict = lang === 'en' ? UI_TRANSLATIONS : EN_TO_UI_TRANSLATIONS;
+  const text = String(value);
+  const trimmed = text.trim();
+  if (!trimmed || !dict[trimmed]) return value;
+  return text.replace(trimmed, dict[trimmed]);
+}
+
+function shouldSkipTranslation(node) {
+  const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  if (!element) return true;
+  return Boolean(element.closest('script, style, textarea, .language-switch, .tree, .file-name, .upload-chip'));
+}
+
+function applyLanguage(lang = currentLanguage()) {
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return shouldSkipTranslation(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    node.nodeValue = translateString(node.nodeValue, lang);
+  });
+  document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach((el) => {
+    el.placeholder = translateString(el.placeholder, lang);
+  });
+  document.querySelectorAll('[title], [aria-label]').forEach((el) => {
+    if (shouldSkipTranslation(el)) return;
+    if (el.title) el.title = translateString(el.title, lang);
+    const aria = el.getAttribute('aria-label');
+    if (aria) el.setAttribute('aria-label', translateString(aria, lang));
+  });
+}
+
+function setLocalizedText(id, zhText) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = currentLanguage() === 'en' ? (UI_TRANSLATIONS[zhText] || zhText) : zhText;
+}
+
 function setLanguagePreference(value) {
   const lang = value === 'en' ? 'en' : 'zh';
   localStorage.setItem('tian_language', lang);
-  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+  applyLanguage(lang);
 }
 
 document.addEventListener('click', (event) => {
@@ -162,7 +343,7 @@ function openMoveFileModal(file) {
 }
 
 function fillUser(user) {
-  document.getElementById('userFormTitle').textContent = '编辑用户';
+  setLocalizedText('userFormTitle', '编辑用户');
   applySuperAdminLock(false);
   setValue('user_id', user.id);
   setValue('user_username', user.username);
@@ -184,14 +365,14 @@ function fillUser(user) {
 
 function reviewUser(user) {
   fillUser(user);
-  document.getElementById('userFormTitle').textContent = '审核注册申请';
+  setLocalizedText('userFormTitle', '审核注册申请');
 }
 
 function newUser() {
   const form = document.querySelector('#userForm form');
   if (form) form.reset();
   applySuperAdminLock(false);
-  document.getElementById('userFormTitle').textContent = '新增用户';
+  setLocalizedText('userFormTitle', '新增用户');
   setValue('user_id', '');
   setValue('user_role', 'member');
   setValue('user_status', 'active');
@@ -204,7 +385,7 @@ function newUser() {
 }
 
 function fillUnit(unit) {
-  document.getElementById('unitFormTitle').textContent = '编辑会员单位';
+  setLocalizedText('unitFormTitle', '编辑会员单位');
   setValue('unit_id', unit.id);
   setValue('unit_workgroup_id', unit.workgroup_id);
   setValue('unit_company_name', unit.company_name);
@@ -216,7 +397,7 @@ function fillUnit(unit) {
 function newUnit() {
   const form = document.querySelector('#unitForm form');
   if (form) form.reset();
-  document.getElementById('unitFormTitle').textContent = '新增会员单位';
+  setLocalizedText('unitFormTitle', '新增会员单位');
   setValue('unit_id', '');
   setValue('unit_workgroup_id', '');
   setValue('unit_company_name', '');
@@ -228,7 +409,7 @@ function newUnit() {
 }
 
 function fillWorkgroup(workgroup) {
-  document.getElementById('workgroupFormTitle').textContent = '编辑工作组';
+  setLocalizedText('workgroupFormTitle', '编辑工作组');
   setValue('workgroup_id', workgroup.id);
   setValue('workgroup_name', workgroup.name);
   setValue('workgroup_description', workgroup.description);
@@ -238,7 +419,7 @@ function fillWorkgroup(workgroup) {
 function newWorkgroup() {
   const form = document.querySelector('#workgroupForm form');
   if (form) form.reset();
-  document.getElementById('workgroupFormTitle').textContent = '新增工作组';
+  setLocalizedText('workgroupFormTitle', '新增工作组');
   setValue('workgroup_id', '');
   setValue('workgroup_name', '');
   setValue('workgroup_description', '');
@@ -248,7 +429,7 @@ function newWorkgroup() {
 }
 
 function fillProposal(proposal) {
-  document.getElementById('proposalFormTitle').textContent = '编辑提案';
+  setLocalizedText('proposalFormTitle', '编辑提案');
   setValue('proposal_id', proposal.id);
   setValue('proposal_meeting_date', proposal.meeting_date);
   setValue('proposal_meeting_place', proposal.meeting_place);
@@ -269,7 +450,7 @@ function fillProposal(proposal) {
 function newProposal() {
   const form = document.querySelector('#proposalForm form');
   if (form) form.reset();
-  document.getElementById('proposalFormTitle').textContent = '新建提案';
+  setLocalizedText('proposalFormTitle', '新建提案');
   setValue('proposal_id', '');
   openModal('proposalForm');
 }

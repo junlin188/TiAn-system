@@ -1464,7 +1464,7 @@ function render_app(array $user, string $page): void
                 <span>▧</span>
                 <select id="languageSelect" onchange="setLanguagePreference(this.value)">
                     <option value="zh">中文</option>
-                    <option value="en">英文</option>
+                    <option value="en">English</option>
                 </select>
             </label>
             <div class="account-menu">
