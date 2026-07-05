@@ -187,8 +187,15 @@ function translateString(value, lang) {
   const dict = lang === 'en' ? UI_TRANSLATIONS : EN_TO_UI_TRANSLATIONS;
   const text = String(value);
   const trimmed = text.trim();
-  if (!trimmed || !dict[trimmed]) return value;
-  return text.replace(trimmed, dict[trimmed]);
+  if (!trimmed) return value;
+  if (dict[trimmed]) {
+    return text.replace(trimmed, dict[trimmed]);
+  }
+  const prefixed = trimmed.match(/^(\S+\s+)(.+)$/);
+  if (prefixed && dict[prefixed[2]]) {
+    return text.replace(trimmed, prefixed[1] + dict[prefixed[2]]);
+  }
+  return value;
 }
 
 function shouldSkipTranslation(node) {
