@@ -647,6 +647,8 @@ th {
     background: #bfe0e3;
     font-weight: 700;
     font-size: 14px;
+    text-align: center;
+    white-space: nowrap;
 }
 td { font-size: 14px; }
 tbody tr:nth-child(odd) { background: #dfe8eb; }
