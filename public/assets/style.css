@@ -822,7 +822,7 @@ body.users-page .tabs {
 .modal-box.narrow { width: min(520px, 96vw); }
 .modal-box.wide { width: min(980px, 96vw); }
 .modal-box.xwide { width: min(1260px, 98vw); }
-.proposal-modal-box { width: min(1030px, 96vw); }
+.proposal-modal-box { width: min(930px, 96vw); }
 .close {
     position: absolute;
     top: 16px;

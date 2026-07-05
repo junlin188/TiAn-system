@@ -2190,7 +2190,7 @@ function render_proposal_modal(array $user): void
             <h3 id="proposalFormTitle">新建提案</h3>
             <input type="hidden" name="id" id="proposal_id">
             <div class="form-grid three proposal-form-grid">
-                <section class="span2 proposal-basic-section">
+                <section class="proposal-basic-section">
                     <div class="proposal-field-grid">
                         <label>会议时间 *<input type="date" name="meeting_date" id="proposal_meeting_date" value="<?= date('Y-m-d') ?>" required></label>
                         <label>会议主题 *<input name="meeting_subject" id="proposal_meeting_subject" required></label>
