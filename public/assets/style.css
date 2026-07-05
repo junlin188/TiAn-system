@@ -847,6 +847,25 @@ body.users-page .tabs {
     grid-template-columns: 1fr 1fr 430px;
     gap: 24px;
 }
+.proposal-form-grid {
+    grid-template-columns: minmax(620px, 760px) 360px;
+    align-items: start;
+}
+.proposal-basic-section {
+    grid-column: auto;
+}
+.proposal-field-grid {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 10px 18px;
+}
+.proposal-field-grid label {
+    min-width: 0;
+}
+.proposal-field-grid input,
+.proposal-field-grid select,
+.proposal-field-grid textarea {
+    width: 100%;
+}
 .span2 { grid-column: span 2; }
 .grid2 {
     display: grid;
@@ -891,6 +910,9 @@ body.users-page .tabs {
     }
     .user-basic-section label {
         text-align: left;
+    }
+    .proposal-field-grid {
+        grid-template-columns: 1fr;
     }
     .user-filter-toolbar {
         grid-template-columns: minmax(130px, 1fr) 110px 98px 56px 52px minmax(78px, 1fr);
