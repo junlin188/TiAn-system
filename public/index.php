@@ -2140,7 +2140,7 @@ function render_chief_proposals(array $user): void
 function render_proposal_table(array $rows, array $user): void
 {
     ?>
-    <div class="table-scroll"><table><thead><tr><th>会议时间</th><th>会议地点</th><th>会议主题</th><th>工作组</th><th>分配的提案号</th><th>存储目录</th><th>有效期</th><th>操作</th></tr></thead><tbody>
+    <div class="table-scroll"><table><thead><tr><th>会议时间</th><th>会议地点</th><th>会议主题</th><th>工作组</th><th>提案号</th><th>存储目录</th><th>有效期</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($rows as $p): $expired = is_expired($p['due_date']); ?>
         <tr>
             <td><?= e(str_replace('-', '/', $p['meeting_date'])) ?></td><td><?= e($p['meeting_place']) ?></td><td><?= e($p['meeting_subject']) ?></td><td><?= e($p['workgroup_name']) ?></td><td><?= e($p['proposal_code']) ?></td><td title="<?= e($p['dir_path']) ?>"><?= e(shorten($p['dir_path'])) ?></td><td class="<?= $expired ? 'date-expired' : 'date-ok' ?>"><?= e(str_replace('-', '/', $p['due_date'])) ?></td>
