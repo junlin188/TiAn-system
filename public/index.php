@@ -821,9 +821,9 @@ function delete_user(array $user): void
     db()->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
 }
 
-function generate_numeric_password(): string
+function default_reset_password(): string
 {
-    return (string)random_int(10000000, 99999999);
+    return 'Ab123456';
 }
 
 function reset_user_password(array $user): void
@@ -842,7 +842,7 @@ function reset_user_password(array $user): void
     if ($target['role'] === 'super_admin') {
         throw new RuntimeException('超管密码不允许在用户列表中重置');
     }
-    $password = generate_numeric_password();
+    $password = default_reset_password();
     db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?')
         ->execute([password_hash($password, PASSWORD_DEFAULT), $id]);
     $_SESSION['reset_password_result'] = [
@@ -1978,10 +1978,10 @@ function render_reset_password_result_modal(): void
             <p class="confirm-copy">用户：<?= e($result['real_name']) ?>（<?= e($result['username']) ?> / <?= e($result['email']) ?>）</p>
             <label>新密码</label>
             <div class="copy-row">
-                <input id="reset_password_value" value="<?= e($result['password']) ?>" readonly>
+                <input id="reset_password_value" value="<?= e($result['password']) ?>">
                 <button type="button" class="primary" onclick="copyResetPassword()">复制</button>
             </div>
-            <div class="modal-actions"><button type="button" class="primary" onclick="closeModal('resetPasswordResult')">关闭</button></div>
+            <div class="modal-actions"><button type="button" class="primary" onclick="closeModal('resetPasswordResult')">确定</button></div>
         </div>
     </div>
     <?php
