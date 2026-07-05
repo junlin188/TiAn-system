@@ -2208,8 +2208,8 @@ function render_proposal_modal(array $user): void
                         <label>会议时间 *<input type="date" name="meeting_date" id="proposal_meeting_date" value="<?= date('Y-m-d') ?>" required></label>
                         <label>会议地点 *<input name="meeting_place" id="proposal_meeting_place" required></label>
                         <label>会议编号 *<input name="meeting_code" id="proposal_meeting_code" required></label>
-                        <label>会员单位 *<select name="member_unit_id" id="proposal_member_unit_id" required><?php options($units, 'company_name'); ?></select></label>
                         <label>工作组 *<select name="workgroup_id" id="proposal_workgroup_id" required><?php options($groups, 'name'); ?></select></label>
+                        <label>会员单位 *<select name="member_unit_id" id="proposal_member_unit_id" required><?php options($units, 'company_name'); ?></select></label>
                         <label>首席会员 *<select name="chief_user_id" id="proposal_chief_user_id" required><?php options($chiefs, 'email'); ?></select></label>
                         <label>提案号 *<input name="proposal_code" id="proposal_proposal_code" required></label>
                         <label>有效期 *<input type="date" name="due_date" id="proposal_due_date" value="<?= date('Y-m-d', strtotime('+7 days')) ?>" required><small>默认为创建后7天</small></label>
