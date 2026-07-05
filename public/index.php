@@ -1918,7 +1918,7 @@ function render_user_modal(array $currentUser): void
                     <label>姓名 *</label><input name="real_name" id="user_real_name" maxlength="20" required>
                     <label>工作组</label><select name="workgroup_id" id="user_workgroup_id"><?php options($groups, 'name'); ?></select>
                     <label>会员单位</label><select name="member_unit_id" id="user_member_unit_id"><?php options($units, 'company_name'); ?></select>
-                    <label>角色 *</label><select name="role" id="user_role"><option value="super_admin" disabled>超管</option><option value="admin" <?= is_super_admin($currentUser) ? '' : 'disabled' ?>>管理员</option><option value="chief">首席会员</option><option value="member">普通会员</option></select>
+                    <label>角色 *</label><select name="role" id="user_role"><option value="super_admin" hidden disabled>超管</option><option value="admin" <?= is_super_admin($currentUser) ? '' : 'disabled' ?>>管理员</option><option value="chief">首席会员</option><option value="member">普通会员</option></select>
                     <label>状态 *</label><select name="status" id="user_status"><option value="active">启用</option><option value="disabled">禁用</option></select>
                 </section>
                 <section>
