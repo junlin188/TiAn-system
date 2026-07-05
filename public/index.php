@@ -375,6 +375,22 @@ function is_super_admin(array $user): bool
     return $user['role'] === 'super_admin';
 }
 
+function can_manage_user(array $operator, array $target): bool
+{
+    if (is_super_admin($operator)) {
+        return true;
+    }
+    return is_admin($operator) && in_array($target['role'], ['chief', 'member'], true);
+}
+
+function can_assign_user_role(array $operator, string $role): bool
+{
+    if (is_super_admin($operator)) {
+        return in_array($role, ['super_admin', 'admin', 'chief', 'member'], true);
+    }
+    return is_admin($operator) && in_array($role, ['chief', 'member'], true);
+}
+
 function is_chief(array $user): bool
 {
     return $user['role'] === 'chief';
@@ -725,6 +741,12 @@ function save_user(array $user): void
         $stmt = db()->prepare('SELECT * FROM users WHERE id = ?');
         $stmt->execute([$id]);
         $existing = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!$existing) {
+            throw new RuntimeException('用户不存在');
+        }
+        if (!can_manage_user($user, $existing)) {
+            throw new RuntimeException('无权编辑该用户');
+        }
     }
     $data = [
         trim($_POST['username'] ?? ''),
@@ -756,6 +778,9 @@ function save_user(array $user): void
     if (!in_array($data[3], ['super_admin', 'admin', 'chief', 'member'], true)) {
         throw new RuntimeException('用户角色不正确');
     }
+    if (!can_assign_user_role($user, $data[3])) {
+        throw new RuntimeException('无权设置该用户角色');
+    }
     if (!in_array($data[4], ['active', 'pending', 'disabled'], true)) {
         throw new RuntimeException('用户状态不正确');
     }
@@ -786,8 +811,12 @@ function delete_user(array $user): void
     }
     $target = db()->prepare('SELECT role FROM users WHERE id = ?');
     $target->execute([$id]);
-    if (in_array($target->fetchColumn(), ['super_admin', 'admin'], true)) {
-        throw new RuntimeException('不能删除管理员账号');
+    $targetUser = $target->fetch(PDO::FETCH_ASSOC);
+    if (!$targetUser) {
+        throw new RuntimeException('用户不存在');
+    }
+    if (!can_manage_user($user, $targetUser)) {
+        throw new RuntimeException('无权删除该用户');
     }
     db()->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
 }
@@ -1751,14 +1780,14 @@ function render_users(array $user): void
         render_units();
     } elseif ($tab === 'pending') {
         render_pending_users();
-        render_user_modal();
+        render_user_modal($user);
     } else {
-        render_user_table();
-        render_user_modal();
+        render_user_table($user);
+        render_user_modal($user);
     }
 }
 
-function render_user_table(): void
+function render_user_table(array $currentUser): void
 {
     $keyword = trim((string)($_GET['q'] ?? ''));
     $workgroupId = (int)($_GET['workgroup_id'] ?? 0);
@@ -1810,12 +1839,17 @@ function render_user_table(): void
     </form>
     <div class="table-scroll"><table><thead><tr><th>编号</th><th>邮箱</th><th>姓名</th><th>公司名称</th><th>工作组</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>
     <?php foreach ($users as $u): ?>
+        <?php
+        $canManage = can_manage_user($currentUser, $u);
+        $canResetPassword = $u['role'] !== 'super_admin' && (int)$u['id'] !== (int)($currentUser['id'] ?? 0);
+        $canDelete = $canManage && (int)$u['id'] !== (int)($currentUser['id'] ?? 0);
+        ?>
         <tr>
             <td><?= $u['id'] ?></td><td><?= e($u['email']) ?></td><td><?= e($u['real_name']) ?></td><td><?= e($u['company_name'] ?? '') ?></td><td><?= e($u['workgroup_name'] ?? '') ?></td><td><?= role_label($u['role']) ?></td><td><?= status_label($u['status']) ?></td>
             <td class="actions">
-                <button class="small" onclick='fillUser(<?= json_attr($u) ?>)'>编辑</button>
-                <?php if ($u['role'] !== 'super_admin' && ($u['role'] !== 'admin' || (int)$u['id'] !== (int)($_SESSION['user_id'] ?? 0))): ?><form method="post" action="?action=reset_user_password" onsubmit="return confirm('确定为该用户重置密码？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small blue">重置密码</button></form><?php endif; ?>
-                <?php if (!in_array($u['role'], ['super_admin', 'admin'], true)): ?><form method="post" action="?action=delete_user" onsubmit="return confirm('确定删除用户？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small danger">删除</button></form><?php else: ?><?= $u['role'] === 'super_admin' ? '超管账户' : '管理员账户' ?><?php endif; ?>
+                <?php if ($canManage): ?><button class="small" onclick='fillUser(<?= json_attr($u) ?>)'>编辑</button><?php endif; ?>
+                <?php if ($canResetPassword): ?><form method="post" action="?action=reset_user_password" onsubmit="return confirm('确定为该用户重置密码？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small blue">重置密码</button></form><?php endif; ?>
+                <?php if ($canDelete): ?><form method="post" action="?action=delete_user" onsubmit="return confirm('确定删除用户？')"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="small danger">删除</button></form><?php elseif (in_array($u['role'], ['super_admin', 'admin'], true)): ?><?= $u['role'] === 'super_admin' ? '超管账户' : '管理员账户' ?><?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>
@@ -1866,7 +1900,7 @@ function status_label(string $status): string
     return ['active' => '启用', 'pending' => '待审核', 'disabled' => '禁用'][$status] ?? $status;
 }
 
-function render_user_modal(): void
+function render_user_modal(array $currentUser): void
 {
     $groups = db()->query('SELECT * FROM workgroups ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     $units = db()->query('SELECT * FROM member_units ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
@@ -1884,7 +1918,7 @@ function render_user_modal(): void
                     <label>姓名 *</label><input name="real_name" id="user_real_name" maxlength="20" required>
                     <label>工作组</label><select name="workgroup_id" id="user_workgroup_id"><?php options($groups, 'name'); ?></select>
                     <label>会员单位</label><select name="member_unit_id" id="user_member_unit_id"><?php options($units, 'company_name'); ?></select>
-                    <label>角色 *</label><select name="role" id="user_role"><option value="super_admin" disabled>超管</option><option value="admin">管理员</option><option value="chief">首席会员</option><option value="member">普通会员</option></select>
+                    <label>角色 *</label><select name="role" id="user_role"><option value="super_admin" disabled>超管</option><option value="admin" <?= is_super_admin($currentUser) ? '' : 'disabled' ?>>管理员</option><option value="chief">首席会员</option><option value="member">普通会员</option></select>
                     <label>状态 *</label><select name="status" id="user_status"><option value="active">启用</option><option value="disabled">禁用</option></select>
                 </section>
                 <section>
