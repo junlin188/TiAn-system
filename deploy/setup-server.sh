@@ -48,7 +48,7 @@ server {
     root ${APP_DIR}/public;
     index index.php index.html;
 
-    client_max_body_size 100m;
+    client_max_body_size 520m;
 
     access_log /var/log/nginx/tian-system.access.log;
     error_log /var/log/nginx/tian-system.error.log;

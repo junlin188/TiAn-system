@@ -71,7 +71,7 @@ const UI_TRANSLATIONS = {
   '新增': 'Add',
   '驳回': 'Reject',
   '文件夹操作': 'Folder Actions',
-  '增加子文件夹': 'Add Subfolder',
+  '增加文件夹': 'Add Folder',
   '添加文件': 'Add File',
   '文件夹结构': 'Folder Structure',
   '展开所有文件夹': 'Expand All Folders',

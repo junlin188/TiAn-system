@@ -8,6 +8,8 @@ const BASE_DIR = __DIR__ . '/..';
 const STORAGE_DIR = BASE_DIR . '/storage';
 const UPLOAD_DIR = STORAGE_DIR . '/uploads';
 const DB_FILE = STORAGE_DIR . '/app.sqlite';
+const MAX_UPLOAD_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_UPLOAD_TOTAL_BYTES = 500 * 1024 * 1024;
 
 date_default_timezone_set('Asia/Shanghai');
 
@@ -493,17 +495,107 @@ function dir_path(int $dirId): string
     return (string)$stmt->fetchColumn();
 }
 
+function format_bytes(int $bytes): string
+{
+    if ($bytes >= 1024 * 1024) {
+        return rtrim(rtrim(number_format($bytes / 1024 / 1024, 2, '.', ''), '0'), '.') . 'M';
+    }
+    if ($bytes >= 1024) {
+        return rtrim(rtrim(number_format($bytes / 1024, 2, '.', ''), '0'), '.') . 'K';
+    }
+    return $bytes . 'B';
+}
+
+function upload_error_message(int $error, string $name): string
+{
+    $fileName = $name !== '' ? $name : '文件';
+    return match ($error) {
+        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => $fileName . ' 超过服务器允许的上传大小',
+        UPLOAD_ERR_PARTIAL => $fileName . ' 只上传了一部分，请重新上传',
+        UPLOAD_ERR_NO_TMP_DIR => '服务器缺少临时上传目录',
+        UPLOAD_ERR_CANT_WRITE => '服务器无法写入上传文件',
+        UPLOAD_ERR_EXTENSION => $fileName . ' 被服务器扩展拦截',
+        default => $fileName . ' 上传失败',
+    };
+}
+
+function normalize_uploaded_files(array $fileInput): array
+{
+    $files = [];
+    $names = $fileInput['name'] ?? null;
+    if (is_array($names)) {
+        foreach ($names as $index => $name) {
+            $files[] = [
+                'name' => (string)$name,
+                'type' => (string)($fileInput['type'][$index] ?? ''),
+                'tmp_name' => (string)($fileInput['tmp_name'][$index] ?? ''),
+                'error' => (int)($fileInput['error'][$index] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int)($fileInput['size'][$index] ?? 0),
+            ];
+        }
+        return $files;
+    }
+    if ($names !== null) {
+        return [$fileInput];
+    }
+    return [];
+}
+
+function validate_upload_batch(array $files): array
+{
+    $validFiles = [];
+    $totalSize = 0;
+    foreach ($files as $file) {
+        $name = basename((string)($file['name'] ?? ''));
+        $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        if ($error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException(upload_error_message($error, $name));
+        }
+        $size = (int)($file['size'] ?? 0);
+        if ($size > MAX_UPLOAD_FILE_BYTES) {
+            throw new RuntimeException($name . ' 超过单个文件限制 ' . format_bytes(MAX_UPLOAD_FILE_BYTES));
+        }
+        $totalSize += $size;
+        if ($totalSize > MAX_UPLOAD_TOTAL_BYTES) {
+            throw new RuntimeException('本次上传总大小超过限制 ' . format_bytes(MAX_UPLOAD_TOTAL_BYTES));
+        }
+        $validFiles[] = $file;
+    }
+    if (!$validFiles) {
+        throw new RuntimeException('请选择要上传的文件');
+    }
+    return $validFiles;
+}
+
+function uploaded_files_from_request(): array
+{
+    if (isset($_FILES['files'])) {
+        return validate_upload_batch(normalize_uploaded_files($_FILES['files']));
+    }
+    return validate_upload_batch(normalize_uploaded_files($_FILES['file'] ?? []));
+}
+
 function upload_file_to_dir(array $file, int $dirId, int $uploaderId, ?int $proposalId = null): int
 {
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        throw new RuntimeException('文件上传失败');
+        throw new RuntimeException(upload_error_message((int)($file['error'] ?? UPLOAD_ERR_NO_FILE), basename((string)($file['name'] ?? ''))));
     }
     $original = basename($file['name']);
+    if ((int)($file['size'] ?? 0) > MAX_UPLOAD_FILE_BYTES) {
+        throw new RuntimeException($original . ' 超过单个文件限制 ' . format_bytes(MAX_UPLOAD_FILE_BYTES));
+    }
     $ext = pathinfo($original, PATHINFO_EXTENSION);
     $stored = date('YmdHis') . '_' . bin2hex(random_bytes(8)) . ($ext ? '.' . $ext : '');
     $target = UPLOAD_DIR . '/' . $stored;
     if (!move_uploaded_file($file['tmp_name'], $target)) {
         throw new RuntimeException('保存文件失败');
+    }
+    if (filesize($target) > MAX_UPLOAD_FILE_BYTES) {
+        unlink($target);
+        throw new RuntimeException($original . ' 超过单个文件限制 ' . format_bytes(MAX_UPLOAD_FILE_BYTES));
     }
     $mime = mime_content_type($target) ?: 'application/octet-stream';
     $stmt = db()->prepare('
@@ -512,6 +604,15 @@ function upload_file_to_dir(array $file, int $dirId, int $uploaderId, ?int $prop
     ');
     $stmt->execute([$dirId, $proposalId, $uploaderId, $original, $stored, (int)filesize($target), $mime, now()]);
     return (int)db()->lastInsertId();
+}
+
+function upload_files_to_dir(array $files, int $dirId, int $uploaderId, ?int $proposalId = null): array
+{
+    $fileIds = [];
+    foreach ($files as $file) {
+        $fileIds[] = upload_file_to_dir($file, $dirId, $uploaderId, $proposalId);
+    }
+    return $fileIds;
 }
 
 function handle_actions(): void
@@ -1155,7 +1256,7 @@ function copy_dir_recursive(int $sourceId, ?int $targetParentId, string $targetP
 function admin_upload(array $user): void
 {
     require_admin($user);
-    upload_file_to_dir($_FILES['file'] ?? [], (int)$_POST['directory_id'], (int)$user['id']);
+    upload_files_to_dir(uploaded_files_from_request(), (int)$_POST['directory_id'], (int)$user['id']);
 }
 
 function file_by_id(int $id): array
@@ -1233,9 +1334,11 @@ function chief_upload(array $user): void
     if (is_expired($proposal['due_date'])) {
         throw new RuntimeException('提案已过期，不能上传');
     }
-    $fileId = upload_file_to_dir($_FILES['file'] ?? [], (int)$proposal['directory_id'], (int)$user['id'], (int)$proposal['id']);
-    db()->prepare('INSERT INTO proposal_uploads(proposal_id, file_id, uploader_id, created_at) VALUES(?, ?, ?, ?)')
-        ->execute([$proposal['id'], $fileId, $user['id'], now()]);
+    $fileIds = upload_files_to_dir(uploaded_files_from_request(), (int)$proposal['directory_id'], (int)$user['id'], (int)$proposal['id']);
+    $stmt = db()->prepare('INSERT INTO proposal_uploads(proposal_id, file_id, uploader_id, created_at) VALUES(?, ?, ?, ?)');
+    foreach ($fileIds as $fileId) {
+        $stmt->execute([$proposal['id'], $fileId, $user['id'], now()]);
+    }
     grant_dir((int)$user['id'], (int)$proposal['directory_id']);
 }
 
@@ -1525,7 +1628,7 @@ function render_files(array $user): void
     $dir = $dirId ? dir_path($dirId) : '';
     $files = [];
     if ($dirId) {
-        $stmt = db()->prepare('SELECT f.*, u.real_name AS uploader FROM files f LEFT JOIN users u ON u.id=f.uploader_id WHERE directory_id=? ORDER BY created_at DESC');
+        $stmt = db()->prepare('SELECT f.*, u.real_name AS uploader FROM files f LEFT JOIN users u ON u.id=f.uploader_id WHERE directory_id=? ORDER BY f.original_name COLLATE NOCASE ASC, f.created_at DESC, f.id DESC');
         $stmt->execute([$dirId]);
         $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -1536,7 +1639,7 @@ function render_files(array $user): void
             <div class="folder-actions">
                 <button type="button" class="outline folder-actions-trigger" onclick="toggleFolderActions(event)">文件夹操作</button>
                 <div class="folder-actions-menu" id="folderActionsMenu">
-                    <button type="button" onclick="openFolderActionModal('createDirForm')"><span>□</span> 增加子文件夹</button>
+                    <button type="button" onclick="openFolderActionModal('createDirForm')"><span>□</span> 增加文件夹</button>
                     <button type="button" onclick="openFolderActionModal('uploadDirForm')"><span>▣</span> 添加文件</button>
                     <button type="button" onclick="openFolderActionModal('renameDirForm')"><span>✎</span> 重命名</button>
                     <button type="button" onclick="openFolderActionModal('copyDirForm')"><span>▣</span> 复制</button>
@@ -1595,7 +1698,7 @@ function render_files(array $user): void
                 <h3>添加文件</h3>
                 <input type="hidden" name="directory_id" value="<?= $dirId ?>">
                 <label>上传到当前文件夹</label>
-                <input type="file" name="file" required>
+                <input type="file" name="files[]" required multiple>
                 <div class="modal-actions">
                     <button type="button" class="muted" onclick="closeModal('uploadDirForm')">取消</button>
                     <button class="primary">上传</button>
@@ -1605,7 +1708,7 @@ function render_files(array $user): void
         <div class="modal" id="createDirForm">
             <form class="modal-box narrow" method="post" action="?action=create_dir">
                 <button type="button" class="close" onclick="closeModal('createDirForm')">×</button>
-                <h3>增加子文件夹</h3>
+                <h3>增加文件夹</h3>
                 <input type="hidden" name="parent_id" value="<?= $dirId ?>">
                 <label>文件夹名称 *</label>
                 <input name="name" placeholder="文件夹名称" required>
@@ -2151,7 +2254,7 @@ function render_proposal_table(array $rows, array $user): void
                     <form method="post" action="?action=delete_proposal" onsubmit="return confirm('确定删除提案？')"><input type="hidden" name="id" value="<?= $p['id'] ?>"><button class="small danger">删除</button></form>
                 <?php else: ?>
                     <?php if (!$expired): ?>
-                        <form method="post" action="?action=chief_upload" enctype="multipart/form-data" class="upload-inline"><input type="hidden" name="proposal_id" value="<?= $p['id'] ?>"><input type="file" name="file" required onchange="this.form.submit()"><button type="button" class="small">上传文件</button></form>
+                        <form method="post" action="?action=chief_upload" enctype="multipart/form-data" class="upload-inline"><input type="hidden" name="proposal_id" value="<?= $p['id'] ?>"><input type="file" name="files[]" required multiple onchange="this.form.submit()"><button type="button" class="small">上传文件</button></form>
                     <?php else: ?><button class="small muted" disabled>已过期</button><?php endif; ?>
                     <?php render_uploads_for_proposal((int)$p['id'], $user, $expired); ?>
                 <?php endif; ?>
