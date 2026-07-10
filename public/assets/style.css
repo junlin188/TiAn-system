@@ -61,6 +61,47 @@ hr { border: 0; border-top: 1px solid #e3e8eb; margin: 14px 0; }
 }
 .login-inner { padding: 36px 48px 42px; }
 .auth-card .login-inner { padding: 30px 42px 36px; }
+.password-field {
+    position: relative;
+}
+.password-field input {
+    padding-right: 48px;
+}
+.password-toggle {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 42px;
+    height: calc(100% - 2px);
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-left: 1px solid #e5eaee;
+    border-radius: 0 4px 4px 0;
+    color: #6d7c86;
+    background: transparent;
+    cursor: pointer;
+}
+.password-toggle:hover {
+    color: #007b78;
+    background: #f4faf9;
+}
+.password-toggle svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.password-toggle .icon-eye-off,
+.password-toggle.is-visible .icon-eye {
+    display: none;
+}
+.password-toggle.is-visible .icon-eye-off {
+    display: block;
+}
 .captcha-row { display: grid; grid-template-columns: 1fr 150px; }
 .captcha-row input { border-radius: 4px 0 0 4px; }
 .captcha-row img {

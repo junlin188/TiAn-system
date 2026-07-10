@@ -33,6 +33,20 @@ function openChangePasswordModal() {
   if (input) input.focus();
 }
 
+function togglePasswordVisibility(inputId, button) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  if (button) {
+    button.classList.toggle('is-visible', visible);
+    const label = visible ? '隐藏密码' : '显示密码';
+    button.setAttribute('aria-label', label);
+    button.setAttribute('title', label);
+  }
+  input.focus();
+}
+
 function toggleFolderActions(event) {
   event.stopPropagation();
   const menu = document.getElementById('folderActionsMenu');

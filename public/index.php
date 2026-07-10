@@ -1468,7 +1468,13 @@ function render_login(): void
                 <label>用户名或邮箱账号：</label>
                 <input name="account" value="admin" required>
                 <label>密码：</label>
-                <input name="password" type="password" value="admin123456" required>
+                <div class="password-field">
+                    <input id="login_password" name="password" type="password" value="admin123456" required>
+                    <button type="button" class="password-toggle" onclick="togglePasswordVisibility('login_password', this)" aria-label="显示密码" title="显示密码">
+                        <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <svg class="icon-eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6A2 2 0 0 0 12 14a2 2 0 0 0 1.4-.6"></path><path d="M8.5 5.5A10.6 10.6 0 0 1 12 5c6 0 9.5 7 9.5 7a16 16 0 0 1-2.6 3.4"></path><path d="M6.1 6.9A16 16 0 0 0 2.5 12s3.5 7 9.5 7c1.2 0 2.3-.3 3.3-.7"></path></svg>
+                    </button>
+                </div>
                 <label>请输入验证码：</label>
                 <div class="captcha-row">
                     <input name="captcha" required autocomplete="off">
