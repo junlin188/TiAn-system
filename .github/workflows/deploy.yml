@@ -83,6 +83,10 @@ jobs:
         run: |
           ssh -i ~/.ssh/aliyun_deploy_key -p "$ALIYUN_PORT" "$ALIYUN_USER@$ALIYUN_HOST" "
             set -e
+            if grep -Eq 'client_max_body_size[[:space:]]+520m;' /etc/nginx/sites-available/tian-system 2>/dev/null; then
+              echo 'Nginx upload limit is already 520m.'
+              exit 0
+            fi
             if [ \"\$(id -u)\" -eq 0 ]; then
               SUDO=''
             elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
